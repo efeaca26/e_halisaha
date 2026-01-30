@@ -10,7 +10,7 @@ class GirisEkrani extends StatefulWidget {
 
 class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  bool isletmeModu = false; // Oyuncu mu İşletme mi? (Word dosyasındaki ayrım)
+  bool isletmeModu = false;
 
   @override
   void initState() {
@@ -20,96 +20,102 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
 
   @override
   Widget build(BuildContext context) {
+    // Dokümandaki Gradient Arka Plan
     return Scaffold(
-      backgroundColor: Colors.white,
-      body: SingleChildScrollView(
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height,
-          child: Column(
-            children: [
-              // --- ÜST KISIM: LOGO VE KARŞILAMA ---
-              Expanded(
-                flex: 4,
-                child: Container(
-                  width: double.infinity,
-                  decoration: const BoxDecoration(
-                    color: Colors.black, // Premium siyah tema
-                    borderRadius: BorderRadius.only(
-                      bottomLeft: Radius.circular(60),
-                      bottomRight: Radius.circular(60),
-                    ),
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.sports_soccer, size: 80, color: Colors.greenAccent),
-                      ),
-                      const SizedBox(height: 20),
-                      const Text(
-                        "E-HALI SAHA",
-                        style: TextStyle(
-                          fontSize: 32, 
-                          fontWeight: FontWeight.w900, 
-                          color: Colors.white,
-                          letterSpacing: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        isletmeModu ? "İşletme Paneli Girişi" : "Maç Yapmaya Hazır mısın?",
-                        style: TextStyle(color: Colors.grey[400], fontSize: 16),
-                      ),
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFFF0FDF4), // green-50
+              Color(0xFFEFF6FF), // blue-50
+            ],
+          ),
+        ),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 60.0),
+            child: Column(
+              children: [
+                const SizedBox(height: 40),
+                // Logo Kısmı
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(color: Colors.green.withOpacity(0.2), blurRadius: 20, offset: const Offset(0, 10))
                     ],
                   ),
+                  child: const Icon(Icons.sports_soccer, size: 64, color: Color(0xFF22C55E)),
                 ),
-              ),
+                const SizedBox(height: 24),
+                const Text(
+                  "eHalısaha",
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1F2937), // Gray-800
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  isletmeModu ? "İşletme Yönetim Paneli" : "Saha Bul, Kirala, Oyna!",
+                  style: const TextStyle(color: Color(0xFF6B7280), fontSize: 16), // Gray-500
+                ),
+                
+                const SizedBox(height: 40),
 
-              // --- ALT KISIM: FORM VE SEÇİMLER ---
-              Expanded(
-                flex: 6,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 30),
+                // Kart Yapısı (Dokümandaki shadow-md stili)
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))
+                    ],
+                  ),
                   child: Column(
                     children: [
-                      // OYUNCU / İŞLETME GEÇİŞ BUTONU
+                      // Oyuncu / İşletme Switch
                       Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(30),
-                          border: Border.all(color: Colors.grey[300]!)
+                          color: const Color(0xFFF3F4F6), // Gray-100
+                          borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
                           children: [
                             _modSecici("Oyuncu", !isletmeModu, () => setState(() => isletmeModu = false)),
-                            _modSecici("Saha Sahibi", isletmeModu, () => setState(() => isletmeModu = true)),
+                            _modSecici("İşletme", isletmeModu, () => setState(() => isletmeModu = true)),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 25),
+                      const SizedBox(height: 24),
 
-                      // GİRİŞ / KAYIT TABLARI
+                      // Tab Bar
                       TabBar(
                         controller: _tabController,
-                        labelColor: Colors.black,
-                        unselectedLabelColor: Colors.grey,
-                        indicatorColor: Colors.green,
-                        labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        labelColor: const Color(0xFF22C55E),
+                        unselectedLabelColor: const Color(0xFF6B7280),
+                        indicatorColor: const Color(0xFF22C55E),
+                        indicatorSize: TabBarIndicatorSize.tab,
+                        dividerColor: Colors.transparent,
                         tabs: const [
                           Tab(text: "Giriş Yap"),
                           Tab(text: "Kayıt Ol"),
                         ],
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 24),
 
-                      // FORM İÇERİKLERİ
-                      Expanded(
+                      // Form Alanı
+                      SizedBox(
+                        height: 300, // Form yüksekliği
                         child: TabBarView(
                           controller: _tabController,
                           children: [
@@ -121,33 +127,7 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
                     ],
                   ),
                 ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Tasarım bileşeni: Oyuncu/İşletme Seçici Buton
-  Widget _modSecici(String yazi, bool aktif, VoidCallback tikla) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: tikla,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 300),
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: aktif ? Colors.green : Colors.transparent,
-            borderRadius: BorderRadius.circular(25),
-            boxShadow: aktif ? [BoxShadow(color: Colors.green.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))] : [],
-          ),
-          child: Text(
-            yazi,
-            style: TextStyle(
-              color: aktif ? Colors.white : Colors.grey,
-              fontWeight: FontWeight.bold,
+              ],
             ),
           ),
         ),
@@ -155,42 +135,60 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
     );
   }
 
-  // Giriş Formu
+  Widget _modSecici(String yazi, bool aktif, VoidCallback tikla) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: tikla,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: aktif ? Colors.white : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: aktif ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)] : [],
+          ),
+          child: Text(
+            yazi,
+            style: TextStyle(
+              color: aktif ? const Color(0xFF111827) : const Color(0xFF6B7280),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _girisFormu() {
     return Column(
       children: [
-        _ozelInput(icon: Icons.email_outlined, hint: "E-Posta Adresi"),
-        const SizedBox(height: 15),
-        _ozelInput(icon: Icons.lock_outline, hint: "Şifre", gizli: true),
+        // Input stili main.dart'tan geliyor
+        const TextField(decoration: InputDecoration(hintText: "E-Posta Adresi", prefixIcon: Icon(Icons.mail_outline))),
+        const SizedBox(height: 16),
+        const TextField(obscureText: true, decoration: InputDecoration(hintText: "Şifre", prefixIcon: Icon(Icons.lock_outline))),
         const Spacer(),
         _anaButon("GİRİŞ YAP", () {
-          // Giriş başarılıysa Ana Sayfaya git
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AnasayfaEkrani()));
+           Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AnasayfaEkrani()));
         }),
       ],
     );
   }
 
-  // Kayıt Formu (İşletme ise ekstra alanlar çıkar)
   Widget _kayitFormu() {
     return SingleChildScrollView(
       child: Column(
         children: [
-          _ozelInput(icon: Icons.person_outline, hint: isletmeModu ? "İşletme Adı" : "Ad Soyad"),
-          const SizedBox(height: 15),
-          _ozelInput(icon: Icons.phone_android_outlined, hint: "Telefon Numarası"),
-          const SizedBox(height: 15),
-          _ozelInput(icon: Icons.email_outlined, hint: "E-Posta Adresi"),
-          const SizedBox(height: 15),
-          _ozelInput(icon: Icons.lock_outline, hint: "Şifre", gizli: true),
-          
-          // Eğer "Saha Sahibi" seçiliyse İlçe soralım
+          TextField(decoration: InputDecoration(hintText: isletmeModu ? "İşletme Adı" : "Ad Soyad", prefixIcon: const Icon(Icons.person_outline))),
+          const SizedBox(height: 16),
+          const TextField(decoration: InputDecoration(hintText: "E-Posta", prefixIcon: Icon(Icons.mail_outline))),
+          const SizedBox(height: 16),
+          const TextField(obscureText: true, decoration: InputDecoration(hintText: "Şifre", prefixIcon: Icon(Icons.lock_outline))),
           if (isletmeModu) ...[
-             const SizedBox(height: 15),
-             _ozelInput(icon: Icons.location_on_outlined, hint: "İl / İlçe"),
+            const SizedBox(height: 16),
+            const TextField(decoration: InputDecoration(hintText: "Konum (İl/İlçe)", prefixIcon: Icon(Icons.location_on_outlined))),
           ],
-          
-          const SizedBox(height: 30),
+          const SizedBox(height: 24),
           _anaButon("KAYIT OL", () {
              Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AnasayfaEkrani()));
           }),
@@ -199,40 +197,20 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
     );
   }
 
-  // Tasarım bileşeni: Özel Text Kutusu
-  Widget _ozelInput({required IconData icon, required String hint, bool gizli = false}) {
-    return TextField(
-      obscureText: gizli,
-      decoration: InputDecoration(
-        prefixIcon: Icon(icon, color: Colors.grey),
-        hintText: hint,
-        filled: true,
-        fillColor: Colors.grey[50],
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey[200]!),
-        ),
-      ),
-    );
-  }
-
-  // Tasarım bileşeni: Siyah Ana Buton
+  // Dokümandaki Primary Button stili
   Widget _anaButon(String yazi, VoidCallback tikla) {
     return SizedBox(
       width: double.infinity,
+      height: 50,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.black,
-          padding: const EdgeInsets.symmetric(vertical: 18),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          elevation: 5,
+          backgroundColor: const Color(0xFF22C55E), // bg-green-600
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          elevation: 0,
         ),
         onPressed: tikla,
-        child: Text(yazi, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+        child: Text(yazi, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
       ),
     );
   }

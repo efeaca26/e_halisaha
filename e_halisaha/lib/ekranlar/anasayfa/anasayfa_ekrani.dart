@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../modeller/saha_modeli.dart';
 import '../../cekirdek/servisler/ornek_veri.dart';
 import '../saha_detay/saha_detay_ekrani.dart';
+import '../harita/harita_ekrani.dart';
 
 class AnasayfaEkrani extends StatefulWidget {
   const AnasayfaEkrani({super.key});
@@ -11,243 +12,264 @@ class AnasayfaEkrani extends StatefulWidget {
 }
 
 class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
-  int _seciliMenuIndex = 0; // Alt menü seçimi
-  List<SahaModeli> tumSahalar = [];
+  // --- STATE (DURUM) DEĞİŞKENLERİ ---
+  int _seciliMenuIndex = 0; // Hangi sayfa açık? (0: Ana Sayfa, 1: Harita...)
+  
+  // Veri Yönetimi
+  List<SahaModeli> _tumSahalar = []; // Orijinal tam liste
+  List<SahaModeli> _goruntulenenSahalar = []; // Ekranda süzülüp gösterilen liste
+  
+  // Arama ve Filtre Durumları
+  String _aramaMetni = "";
+  String _seciliFiltre = "Tümü"; // "Kapalı Saha", "Otopark" vb.
 
   @override
   void initState() {
     super.initState();
-    tumSahalar = SahteVeriServisi.sahalariGetir();
+    // Başlangıçta tüm verileri çek ve ekrana bas
+    _tumSahalar = SahteVeriServisi.sahalariGetir();
+    _goruntulenenSahalar = _tumSahalar;
+  }
+
+  // --- MANTIK: FİLTRELEME FONKSİYONU ---
+  // Hem arama metnine hem de seçili filtreye göre listeyi süzer
+  void _listeyiGuncelle() {
+    setState(() {
+      _goruntulenenSahalar = _tumSahalar.where((saha) {
+        // 1. Kural: Arama metni ismin içinde geçiyor mu?
+        bool aramaUyumu = saha.isim.toLowerCase().contains(_aramaMetni.toLowerCase()) || 
+                          saha.ilce.toLowerCase().contains(_aramaMetni.toLowerCase());
+        
+        // 2. Kural: Filtre seçili mi? Seçiliyse sahanın özelliklerinde var mı?
+        bool filtreUyumu = _seciliFiltre == "Tümü" || saha.ozellikler.contains(_seciliFiltre);
+
+        return aramaUyumu && filtreUyumu; // İkisine de uyuyorsa göster
+      }).toList();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    // --- SAYFA YÖNETİMİ ---
+    // Alt menüye basınca hangi widget'ın gösterileceğini seçiyoruz
+    final List<Widget> sayfalar = [
+      _anaSayfaIcerigi(),       // 0: Ana Sayfa
+      const HaritaEkrani(),
+      _bosSayfa("Maçlarım"),    // 2: Maçlarım
+      _bosSayfa("Profil"),      // 3: Profil
+    ];
+
     return Scaffold(
-      backgroundColor: Colors.grey[50], // Hafif gri arka plan
+      backgroundColor: const Color(0xFFF0FDF4), 
+      body: sayfalar[_seciliMenuIndex], // Seçili sayfayı göster
       
-      // ALT MENÜ (Bottom Navigation Bar)
+      // ALT MENÜ (FOOTER)
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10)],
+          color: Colors.white,
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20)],
         ),
         child: BottomNavigationBar(
           currentIndex: _seciliMenuIndex,
-          onTap: (index) => setState(() => _seciliMenuIndex = index),
-          selectedItemColor: Colors.green[700],
-          unselectedItemColor: Colors.grey,
+          onTap: (index) {
+            setState(() {
+              _seciliMenuIndex = index;
+            });
+          },
+          selectedItemColor: const Color(0xFF22C55E),
+          unselectedItemColor: const Color(0xFF9CA3AF),
           showUnselectedLabels: true,
           type: BottomNavigationBarType.fixed,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
           items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home_filled), label: "Ana Sayfa"),
-            BottomNavigationBarItem(icon: Icon(Icons.map_outlined), label: "Harita"),
+            BottomNavigationBarItem(icon: Icon(Icons.home), label: "Ana Sayfa"),
+            BottomNavigationBarItem(icon: Icon(Icons.map), label: "Harita"),
             BottomNavigationBarItem(icon: Icon(Icons.sports_soccer), label: "Maçlarım"),
             BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: "Profil"),
           ],
         ),
       ),
+    );
+  }
 
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // --- ÜST ARAMA VE KONUM BÖLÜMÜ ---
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: const BoxDecoration(
-                  color: Colors.black, // Premium Siyah
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(30),
-                    bottomRight: Radius.circular(30),
+  // --- ANA SAYFA İÇERİĞİ (ESKİ BODY KISMI) ---
+  Widget _anaSayfaIcerigi() {
+    return Container(
+       decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFF0FDF4), Color(0xFFEFF6FF)],
+        ),
+      ),
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // --- HERO SECTION (ARAMA VE BAŞLIK) ---
+            Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Üst Başlık
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Hoşgeldin,", style: TextStyle(color: Color(0xFF6B7280), fontSize: 16)),
+                          Text("Efe A.", style: TextStyle(color: Color(0xFF111827), fontSize: 24, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      Icon(Icons.notifications_outlined, color: Color(0xFF22C55E))
+                    ],
                   ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Selamlama ve Konum
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  const SizedBox(height: 24),
+                  
+                  // ARAMA ÇUBUĞU (AKTİF)
+                  TextField(
+                    onChanged: (deger) {
+                      _aramaMetni = deger; // Yazılanı kaydet
+                      _listeyiGuncelle();  // Listeyi yenile
+                    },
+                    decoration: InputDecoration(
+                      hintText: "Saha adı veya ilçe ara...",
+                      prefixIcon: const Icon(Icons.search, color: Color(0xFF9CA3AF)),
+                      fillColor: Colors.white,
+                      filled: true,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // FİLTRELER (AKTİF)
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text("Tekrar Hoşgeldin 👋", style: TextStyle(color: Colors.grey, fontSize: 14)),
-                            SizedBox(height: 5),
-                            Row(
-                              children: [
-                                Icon(Icons.location_on, color: Colors.green, size: 16),
-                                SizedBox(width: 5),
-                                Text("Kocaeli, Gebze", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                                Icon(Icons.keyboard_arrow_down, color: Colors.grey, size: 16),
-                              ],
-                            ),
-                          ],
-                        ),
-                        CircleAvatar(
-                          backgroundColor: Colors.grey,
-                          child: Icon(Icons.person, color: Colors.white),
-                        )
+                        _filtreButonu("Tümü"),
+                        _filtreButonu("Kapalı Saha"),
+                        _filtreButonu("Duş"), // Örnek veri ile eşleşmesi için "Duş" yaptım
+                        _filtreButonu("Otopark"),
                       ],
                     ),
-                    const SizedBox(height: 20),
-                    
-                    // Arama Çubuğu
-                    TextField(
-                      decoration: InputDecoration(
-                        hintText: "Saha adı veya ilçe ara...",
-                        hintStyle: TextStyle(color: Colors.grey[400]),
-                        prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                        filled: true,
-                        fillColor: Colors.white.withOpacity(0.15), // Saydam beyaz
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 15),
-                      ),
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
+            ),
 
-              const SizedBox(height: 25),
-
-              // --- BÖLÜM 1: POPÜLER SAHALAR (Yatay Liste) ---
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text("🔥 Popüler Sahalar", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    Text("Tümü", style: TextStyle(color: Colors.green[700], fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 15),
-              
-              // Yatay Kaydırma Alanı
-              SizedBox(
-                height: 240, // Kart yüksekliği
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.only(left: 20),
-                  itemCount: tumSahalar.length,
+            // --- LİSTELEME ---
+            Expanded(
+              child: _goruntulenenSahalar.isEmpty 
+              ? const Center(child: Text("Aradığınız kriterde saha bulunamadı.")) 
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  itemCount: _goruntulenenSahalar.length,
                   itemBuilder: (context, index) {
-                    final saha = tumSahalar[index];
+                    final saha = _goruntulenenSahalar[index];
                     return GestureDetector(
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SahaDetayEkrani(saha: saha))),
                       child: Container(
-                        width: 200,
-                        margin: const EdgeInsets.only(right: 15, bottom: 10), // Gölge için bottom margin şart
+                        margin: const EdgeInsets.only(bottom: 16),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5))],
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             // Resim
-                            Expanded(
-                              flex: 3,
-                              child: ClipRRect(
-                                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                                child: Image.asset(saha.resimYolu, width: double.infinity, fit: BoxFit.cover),
-                              ),
+                            ClipRRect(
+                              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                              child: Image.asset(saha.resimYolu, height: 160, width: double.infinity, fit: BoxFit.cover),
                             ),
                             // Bilgiler
-                            Expanded(
-                              flex: 2,
-                              child: Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(saha.isim, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.star, color: Colors.amber, size: 16),
-                                        Text(" ${saha.puan}", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                                        Text(" • ${saha.ilce}", style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                                      ],
-                                    ),
-                                    Text("${saha.fiyat.toStringAsFixed(0)}₺ / Saat", style: TextStyle(color: Colors.green[700], fontWeight: FontWeight.bold)),
-                                  ],
-                                ),
+                            Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(saha.isim, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(8)),
+                                        child: Text("${saha.puan}", style: const TextStyle(color: Color(0xFF15803D), fontWeight: FontWeight.bold)),
+                                      )
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text("📍 ${saha.ilce} • ${saha.tamKonum}", style: const TextStyle(color: Color(0xFF6B7280), fontSize: 14)),
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text("${saha.fiyat.toStringAsFixed(0)}₺ / Saat", style: const TextStyle(color: Color(0xFF22C55E), fontWeight: FontWeight.bold, fontSize: 16)),
+                                      const Text("İncele >", style: TextStyle(color: Color(0xFF22C55E), fontWeight: FontWeight.bold)),
+                                    ],
+                                  )
+                                ],
                               ),
-                            ),
+                            )
                           ],
                         ),
                       ),
                     );
                   },
                 ),
-              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
-              const SizedBox(height: 20),
-
-              // --- BÖLÜM 2: YAKINDAKİLER (Dikey Liste) ---
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20),
-                child: Text("📍 Yakınındakiler", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              ),
-              const SizedBox(height: 10),
-
-              ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                shrinkWrap: true, // ScrollView içinde olduğu için şart
-                physics: const NeverScrollableScrollPhysics(), // Ana scroll'u kullanması için
-                itemCount: tumSahalar.length,
-                itemBuilder: (context, index) {
-                  final saha = tumSahalar[index];
-                  return GestureDetector(
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SahaDetayEkrani(saha: saha))),
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 15),
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(15),
-                        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)],
-                      ),
-                      child: Row(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: Image.asset(saha.resimYolu, width: 80, height: 80, fit: BoxFit.cover),
-                          ),
-                          const SizedBox(width: 15),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(saha.isim, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                const SizedBox(height: 5),
-                                Text(saha.tamKonum, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                                const SizedBox(height: 5),
-                                Row(
-                                  children: saha.ozellikler.take(2).map((ozellik) => 
-                                    Container(
-                                      margin: const EdgeInsets.only(right: 5),
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(4)),
-                                      child: Text(ozellik, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                                    )
-                                  ).toList(),
-                                )
-                              ],
-                            ),
-                          ),
-                          Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[300])
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 20),
-            ],
+  // Aktif Filtre Butonu
+  Widget _filtreButonu(String yazi) {
+    bool aktif = _seciliFiltre == yazi;
+    return GestureDetector(
+      onTap: () {
+        _seciliFiltre = yazi; // Seçimi güncelle
+        _listeyiGuncelle();   // Listeyi tekrar süz
+      },
+      child: Container(
+        margin: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: aktif ? const Color(0xFF22C55E) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: aktif ? Colors.transparent : const Color(0xFFE5E7EB)),
+        ),
+        child: Text(
+          yazi, 
+          style: TextStyle(
+            color: aktif ? Colors.white : const Color(0xFF4B5563),
+            fontWeight: FontWeight.w500
           ),
         ),
+      ),
+    );
+  }
+
+  // Geçici Boş Sayfa (Harita vb. için)
+  Widget _bosSayfa(String baslik) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.construction, size: 80, color: Colors.grey[300]),
+          const SizedBox(height: 20),
+          Text("$baslik Sayfası", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          const Text("Çok yakında burada olacak!", style: TextStyle(color: Colors.grey)),
+        ],
       ),
     );
   }
