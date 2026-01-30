@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'ekranlar/anasayfa/anasayfa_ekrani.dart';
+import 'ekranlar/giris/giris_ekran.dart'; // Yeni giriş ekranını import ettik
 
 void main() {
   runApp(const EHalisahaUygulamasi());
@@ -14,10 +14,15 @@ class EHalisahaUygulamasi extends StatelessWidget {
       title: 'E-HalıSaha',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primarySwatch: Colors.green, 
+        // Modern renk paleti
+        primaryColor: Colors.black,
+        scaffoldBackgroundColor: Colors.white,
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
         useMaterial3: true,
+        fontFamily: 'Roboto', 
       ),
-      home: const AnasayfaEkrani(),
+      // ARTIK BURADAN BAŞLIYORUZ:
+      home: const GirisEkrani(),
     );
   }
 }
