@@ -1,7 +1,6 @@
-// Doğru dosya isimlerine göre güncellenmiş hali:
 import 'package:flutter/material.dart';
-import '../../modeller/saha_modeli.dart'; // Sonundaki 'i' harfini sildik
-import '../../cekirdek/servisler/ornek_veri.dart'; // Dosya ismini senin yaptığın gibi düzelttik
+import '../../modeller/saha_modeli.dart';
+import '../../cekirdek/servisler/ornek_veri.dart';
 import '../odeme/odeme_ekrani.dart';
 
 class SahaDetayEkrani extends StatefulWidget {
@@ -13,14 +12,14 @@ class SahaDetayEkrani extends StatefulWidget {
 }
 
 class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
-  // [cite: 101] Saat kutucukları (17:00 - 24:00 arası)
+  // Saat kutucukları (17:00 - 24:00 arası)
   final List<String> saatler = [
     '17:00', '18:00', '19:00', '20:00', 
     '21:00', '22:00', '23:00', '24:00'
   ];
 
   List<String> doluSaatler = [];
-  String? secilenSaat; // [cite: 104] Sarı durum
+  String? secilenSaat; // Sarı durum
 
   @override
   void initState() {
@@ -35,7 +34,7 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
       appBar: AppBar(title: Text(widget.saha.isim)),
       body: Column(
         children: [
-          // Özellik İkonları [cite: 99]
+          // Özellik İkonları
           Container(
             padding: const EdgeInsets.all(16),
             color: Colors.grey[100],
@@ -56,7 +55,7 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
           const Text("📅 Tarih: Bugün (30 Ocak)", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
 
-          // [cite: 8] Grid Yapısı (Otobüs koltuğu seçer gibi)
+          // Grid Yapısı (Otobüs koltuğu seçer gibi)
           Expanded(
             child: GridView.builder(
               padding: const EdgeInsets.all(20),
@@ -87,7 +86,7 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                   },
                   child: Container(
                     decoration: BoxDecoration(
-                      // [cite: 102, 103, 104] Renk Mantığı
+                      // Renk Mantığı
                       color: isDolu ? Colors.red[300] : (isSecili ? Colors.orange : Colors.green[400]),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.black12),
@@ -139,7 +138,7 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                     padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
                   ),
                   onPressed: secilenSaat == null ? null : () {
-                    // [cite: 21] Kilit mantığını başlatmak için ödemeye git
+                    // Kilit mantığını başlatmak için ödemeye git
                     Navigator.push(
                       context, 
                       MaterialPageRoute(builder: (context) => OdemeEkrani(saha: widget.saha, saat: secilenSaat!))
