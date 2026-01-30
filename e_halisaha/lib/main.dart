@@ -21,7 +21,6 @@ class EHalisahaUygulamasi extends StatelessWidget {
         useMaterial3: true,
         fontFamily: 'Roboto', 
       ),
-      // ARTIK BURADAN BAŞLIYORUZ:
       home: const GirisEkrani(),
     );
   }
