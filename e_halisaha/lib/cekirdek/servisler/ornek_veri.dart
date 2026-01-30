@@ -1,4 +1,4 @@
-import '../../modeller/saha_model.dart';
+import '../../modeller/saha_modeli.dart';
 
 class SahteVeriServisi {
   static List<SahaModeli> sahalariGetir() {

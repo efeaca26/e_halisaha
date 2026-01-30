@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../cekirdek/servisler/ornek_veri.dart';
-import 'package:e_halisaha/modeller/saha_model.dart';
+import 'package:e_halisaha/modeller/saha_modeli.dart';
 import '../saha_detay/saha_detay_ekrani.dart';
 
 class AnasayfaEkrani extends StatefulWidget {
