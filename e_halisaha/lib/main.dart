@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'ekranlar/giris/giris_ekran.dart'; // Yeni giriş ekranını import ettik
+import 'ekranlar/giris/giris_ekrani.dart';
 
 void main() {
   runApp(const EHalisahaUygulamasi());
