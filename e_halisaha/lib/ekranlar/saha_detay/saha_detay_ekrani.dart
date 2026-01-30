@@ -1,6 +1,7 @@
+// Doğru dosya isimlerine göre güncellenmiş hali:
 import 'package:flutter/material.dart';
-import '../../modeller/saha_modeli.dart';
-import '../../cekirdek/servisler/sahte_veri_servisi.dart';
+import '../../modeller/saha_modeli.dart'; // Sonundaki 'i' harfini sildik
+import '../../cekirdek/servisler/ornek_veri.dart'; // Dosya ismini senin yaptığın gibi düzelttik
 import '../odeme/odeme_ekrani.dart';
 
 class SahaDetayEkrani extends StatefulWidget {
