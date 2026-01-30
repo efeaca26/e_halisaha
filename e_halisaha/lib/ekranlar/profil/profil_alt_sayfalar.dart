@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../cekirdek/servisler/kimlik_servisi.dart';
 
-// Ortak bir şablon sayfa yapıyoruz, hepsi bunu kullanacak
+// --- BU SINIFIN EKSİK OLMADIĞINDAN EMİN OL ---
 class GenelAltSayfa extends StatelessWidget {
   final String baslik;
   final IconData ikon;
@@ -31,41 +32,116 @@ class GenelAltSayfa extends StatelessWidget {
     );
   }
 }
+// ---------------------------------------------
 
-// 1. Hesap Bilgileri Sayfası
-class HesapBilgileriEkrani extends StatelessWidget {
+class HesapBilgileriEkrani extends StatefulWidget {
   const HesapBilgileriEkrani({super.key});
+
+  @override
+  State<HesapBilgileriEkrani> createState() => _HesapBilgileriEkraniState();
+}
+
+class _HesapBilgileriEkraniState extends State<HesapBilgileriEkrani> {
+  final Map<String, dynamic> kullanici = KimlikServisi.aktifKullanici ?? {}; 
+  
+  Future<void> _tarihSec(BuildContext context) async {
+    final DateTime? secilenTarih = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime(1950),
+      lastDate: DateTime.now(),
+      locale: const Locale('tr', 'TR'),
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.light().copyWith(
+            primaryColor: const Color(0xFF22C55E),
+            colorScheme: const ColorScheme.light(primary: Color(0xFF22C55E)),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (secilenTarih != null) {
+      setState(() {
+        String formatliTarih = "${secilenTarih.day}.${secilenTarih.month}.${secilenTarih.year}";
+        kullanici['dogumTarihi'] = formatliTarih;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Doğum tarihi güncellendi!"), backgroundColor: Colors.green),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (KimlikServisi.aktifKullanici == null) {
+      return const Scaffold(body: Center(child: Text("Lütfen tekrar giriş yapınız.")));
+    }
+
     return Scaffold(
-      appBar: AppBar(title: const Text("Hesap Bilgileri")),
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        title: const Text("Hesap Bilgileri", style: TextStyle(color: Colors.black)),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.black),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            _bilgiSatiri("Ad Soyad", "Efe A."),
-            _bilgiSatiri("E-Posta", "oyuncu@mail.com"),
-            _bilgiSatiri("Telefon", "+90 555 000 00 00"),
-            _bilgiSatiri("Doğum Tarihi", "01.01.2000"),
+            _saltOkunurSatir("Ad Soyad", kullanici['isim']),
+            _saltOkunurSatir("E-Posta", kullanici['email']),
+            _saltOkunurSatir("Telefon", kullanici['telefon']),
+            const SizedBox(height: 10),
+            GestureDetector(
+              onTap: () => _tarihSec(context),
+              child: Container(
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFF22C55E).withOpacity(0.5))
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text("Doğum Tarihi", style: TextStyle(color: Colors.black54)),
+                    Row(
+                      children: [
+                        Text(
+                          kullanici['dogumTarihi'] ?? "Seçiniz", 
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF15803D))
+                        ),
+                        const SizedBox(width: 8),
+                        const Icon(Icons.edit_calendar, size: 20, color: Color(0xFF15803D)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _bilgiSatiri(String baslik, String deger) {
+  Widget _saltOkunurSatir(String baslik, String? deger) {
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
-        borderRadius: BorderRadius.circular(10)
+        color: Colors.grey[50], 
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey[200]!)
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(baslik, style: const TextStyle(color: Colors.grey)),
-          Text(deger, style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text(deger ?? "-", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
         ],
       ),
     );
