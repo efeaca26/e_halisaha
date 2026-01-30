@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart'; // <--- BU PAKETİ EKLEDİK
 import 'ekranlar/giris/giris_ekrani.dart';
 
 void main() {
@@ -13,32 +14,37 @@ class EHalisahaUygulamasi extends StatelessWidget {
     return MaterialApp(
       title: 'E-HalıSaha',
       debugShowCheckedModeBanner: false,
+      
+      // --- İŞTE EKSİK OLAN KISIM BURASIYDI ---
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('tr', 'TR'), // Türkçe
+        Locale('en', 'US'), // İngilizce (Yedek)
+      ],
+      // ----------------------------------------
+
       theme: ThemeData(
-        // Dokümandaki #22c55e (Tailwind Green-500) rengi
         primaryColor: const Color(0xFF22C55E),
-        
-        // Arka plan rengi (Gradient kullanacağız ama varsayılan beyaz kalsın)
-        scaffoldBackgroundColor: const Color(0xFFF0FDF4), // green-50 tonu
-        
-        // Renk şeması
+        scaffoldBackgroundColor: const Color(0xFFF0FDF4),
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF22C55E),
-          primary: const Color(0xFF22C55E), // Ana Yeşil
-          secondary: const Color(0xFF3B82F6), // Mavi
-          error: const Color(0xFFEF4444), // Kırmızı
+          primary: const Color(0xFF22C55E),
+          secondary: const Color(0xFF3B82F6),
+          error: const Color(0xFFEF4444),
           surface: Colors.white,
         ),
-        
         useMaterial3: true,
         fontFamily: 'Roboto',
-        
-        // Input dekorasyonu (Dokümandaki gri border stili)
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: Colors.white,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFD1D5DB)), // Gray-300
+            borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
@@ -46,7 +52,7 @@ class EHalisahaUygulamasi extends StatelessWidget {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF22C55E), width: 2), // Focus Green
+            borderSide: const BorderSide(color: Color(0xFF22C55E), width: 2),
           ),
         ),
       ),
