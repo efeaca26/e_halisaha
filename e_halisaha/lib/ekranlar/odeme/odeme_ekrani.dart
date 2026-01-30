@@ -83,7 +83,7 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
             // Özet Bilgiler [cite: 107]
             _bilgiSatiri("Tesis", widget.saha.isim),
             _bilgiSatiri("Tarih", "30 Ocak 2026"),
-            _bilgiSatiri("Saat", widget.saha.saat), // Hata alırsan parametre adını kontrol et, yukarıda 'saat' olarak geldi
+            _bilgiSatiri("Saat", widget.saat),
             const Divider(),
             _bilgiSatiri("Toplam Ücret", "${widget.saha.fiyat} TL"),
             _bilgiSatiri("Ödenecek Kapora", "${widget.saha.kapora} TL", renk: Colors.green),
