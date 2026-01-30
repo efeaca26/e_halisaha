@@ -3,6 +3,7 @@ import '../../modeller/saha_modeli.dart';
 import '../../cekirdek/servisler/ornek_veri.dart';
 import '../saha_detay/saha_detay_ekrani.dart';
 import '../harita/harita_ekrani.dart';
+import '../profil/profil_ekrani.dart';
 
 class AnasayfaEkrani extends StatefulWidget {
   const AnasayfaEkrani({super.key});
@@ -53,10 +54,10 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
     // --- SAYFA YÖNETİMİ ---
     // Alt menüye basınca hangi widget'ın gösterileceğini seçiyoruz
     final List<Widget> sayfalar = [
-      _anaSayfaIcerigi(),       // 0: Ana Sayfa
+      _anaSayfaIcerigi(),
       const HaritaEkrani(),
-      _bosSayfa("Maçlarım"),    // 2: Maçlarım
-      _bosSayfa("Profil"),      // 3: Profil
+      _bosSayfa("Maçlarım"),
+      const ProfilEkrani(),
     ];
 
     return Scaffold(

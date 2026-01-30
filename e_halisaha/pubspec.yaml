@@ -31,12 +31,10 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # Yeni eklediklerimiz (flutter ile aynı hizada olmalı):
   flutter_map: ^6.1.0
   latlong2: ^0.9.0
-
-  # Bu zaten vardı:
   cupertino_icons: ^1.0.8
+  image_picker: ^1.0.7
 
 dev_dependencies:
   flutter_test:
