@@ -1,0 +1,21 @@
+name: Otomatik Yedek
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Sürüm Oluştur
+        run: echo "TAG_NAME=v1.0-${{ github.run_number }}" >> $GITHUB_ENV
+      - name: Release Yap
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: Yedek ${{ env.TAG_NAME }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
