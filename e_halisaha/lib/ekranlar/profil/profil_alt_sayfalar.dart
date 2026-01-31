@@ -1,148 +1,161 @@
 import 'package:flutter/material.dart';
 import '../../cekirdek/servisler/kimlik_servisi.dart';
+import '../giris/giris_ekrani.dart';
 
-// --- BU SINIFIN EKSİK OLMADIĞINDAN EMİN OL ---
-class GenelAltSayfa extends StatelessWidget {
-  final String baslik;
-  final IconData ikon;
+// --- TEK İMPORT: Sadece yeni birleştirdiğimiz dosyayı çağırıyoruz ---
+import 'profil_alt_sayfalar_yeni.dart'; 
+// --------------------------------------------------------------------
 
-  const GenelAltSayfa({super.key, required this.baslik, required this.ikon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(baslik, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        centerTitle: true,
-        backgroundColor: const Color(0xFFF0FDF4),
-        elevation: 0,
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(ikon, size: 80, color: Colors.grey[300]),
-            const SizedBox(height: 20),
-            Text("$baslik Burada Olacak", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            const Text("Bu özellik geliştirme aşamasındadır.", style: TextStyle(color: Colors.grey)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-// ---------------------------------------------
-
-class HesapBilgileriEkrani extends StatefulWidget {
-  const HesapBilgileriEkrani({super.key});
-
-  @override
-  State<HesapBilgileriEkrani> createState() => _HesapBilgileriEkraniState();
-}
-
-class _HesapBilgileriEkraniState extends State<HesapBilgileriEkrani> {
-  final Map<String, dynamic> kullanici = KimlikServisi.aktifKullanici ?? {}; 
-  
-  Future<void> _tarihSec(BuildContext context) async {
-    final DateTime? secilenTarih = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(1950),
-      lastDate: DateTime.now(),
-      locale: const Locale('tr', 'TR'),
-      builder: (context, child) {
-        return Theme(
-          data: ThemeData.light().copyWith(
-            primaryColor: const Color(0xFF22C55E),
-            colorScheme: const ColorScheme.light(primary: Color(0xFF22C55E)),
-          ),
-          child: child!,
-        );
-      },
-    );
-
-    if (secilenTarih != null) {
-      setState(() {
-        String formatliTarih = "${secilenTarih.day}.${secilenTarih.month}.${secilenTarih.year}";
-        kullanici['dogumTarihi'] = formatliTarih;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Doğum tarihi güncellendi!"), backgroundColor: Colors.green),
-      );
-    }
-  }
+class ProfilEkrani extends StatelessWidget {
+  const ProfilEkrani({super.key});
 
   @override
   Widget build(BuildContext context) {
-    if (KimlikServisi.aktifKullanici == null) {
-      return const Scaffold(body: Center(child: Text("Lütfen tekrar giriş yapınız.")));
-    }
+    final kullanici = KimlikServisi.aktifKullanici;
 
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text("Hesap Bilgileri", style: TextStyle(color: Colors.black)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            _saltOkunurSatir("Ad Soyad", kullanici['isim']),
-            _saltOkunurSatir("E-Posta", kullanici['email']),
-            _saltOkunurSatir("Telefon", kullanici['telefon']),
-            const SizedBox(height: 10),
-            GestureDetector(
-              onTap: () => _tarihSec(context),
-              child: Container(
-                padding: const EdgeInsets.all(15),
+      backgroundColor: const Color(0xFFF8FAFC), // Hafif gri arka plan
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              // --- ÜST PROFİL KARTI ---
+              Container(
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDF4),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF22C55E).withOpacity(0.5))
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text("Doğum Tarihi", style: TextStyle(color: Colors.black54)),
-                    Row(
-                      children: [
-                        Text(
-                          kullanici['dogumTarihi'] ?? "Seçiniz", 
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF15803D))
-                        ),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.edit_calendar, size: 20, color: Color(0xFF15803D)),
-                      ],
+                    CircleAvatar(
+                      radius: 35,
+                      backgroundColor: const Color(0xFF22C55E),
+                      child: Text(
+                        kullanici != null ? kullanici['isim'][0].toUpperCase() : "M",
+                        style: const TextStyle(fontSize: 28, color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
                     ),
+                    const SizedBox(width: 15),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            kullanici != null ? kullanici['isim'] : "Misafir",
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            kullanici != null ? kullanici['email'] : "Giriş yapılmadı",
+                            style: const TextStyle(color: Colors.grey, fontSize: 14),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.edit, color: Colors.grey),
+                      onPressed: () {
+                        // Hesap Bilgilerine Git
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => const HesapBilgileriEkrani()));
+                      },
+                    )
                   ],
                 ),
               ),
-            ),
-          ],
+
+              const SizedBox(height: 30),
+
+              // --- MENÜ LİSTESİ ---
+              _profilMenuItem(
+                context, 
+                icon: Icons.person_outline, 
+                text: "Hesap Bilgileri", 
+                gidilecekSayfa: const HesapBilgileriEkrani()
+              ),
+              
+              _profilMenuItem(
+                context, 
+                icon: Icons.history, 
+                text: "Geçmiş Rezervasyonlar", 
+                gidilecekSayfa: const GecmisRezervasyonlarEkrani()
+              ),
+
+              _profilMenuItem(
+                context, 
+                icon: Icons.groups_outlined, 
+                text: "Geçmiş Rakipler", 
+                gidilecekSayfa: const GecmisDetayEkrani(baslik: "Geçmiş Rakipler", rakipMi: true)
+              ),
+
+              _profilMenuItem(
+                context, 
+                icon: Icons.person_add_alt, 
+                text: "Geçmiş Oyuncular", 
+                gidilecekSayfa: const GecmisDetayEkrani(baslik: "Geçmiş Oyuncular", rakipMi: false)
+              ),
+
+              _profilMenuItem(
+                context, 
+                icon: Icons.credit_card, 
+                text: "Ödeme Yöntemleri", 
+                gidilecekSayfa: const OdemeYontemleriEkrani()
+              ),
+
+              _profilMenuItem(
+                context, 
+                icon: Icons.settings_outlined, 
+                text: "Ayarlar", 
+                gidilecekSayfa: const AyarlarEkrani()
+              ),
+
+              const SizedBox(height: 20),
+
+              // --- ÇIKIŞ BUTONU ---
+              TextButton.icon(
+                onPressed: () {
+                  // Çıkış Yap ve Giriş Ekranına Dön
+                  KimlikServisi.cikisYap();
+                  Navigator.pushAndRemoveUntil(
+                    context, 
+                    MaterialPageRoute(builder: (context) => const GirisEkrani()), 
+                    (route) => false
+                  );
+                },
+                icon: const Icon(Icons.logout, color: Colors.red),
+                label: const Text("Çıkış Yap", style: TextStyle(color: Colors.red, fontSize: 16)),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _saltOkunurSatir(String baslik, String? deger) {
+  // Menü Tasarımı (Yardımcı Widget)
+  Widget _profilMenuItem(BuildContext context, {required IconData icon, required String text, required Widget gidilecekSayfa}) {
     return Container(
       margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
-        color: Colors.grey[50], 
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey[200]!)
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 5)],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(baslik, style: const TextStyle(color: Colors.grey)),
-          Text(deger ?? "-", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
-        ],
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0FDF4),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: const Color(0xFF15803D)),
+        ),
+        title: Text(text, style: const TextStyle(fontWeight: FontWeight.bold)),
+        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+        onTap: () {
+          Navigator.push(context, MaterialPageRoute(builder: (context) => gidilecekSayfa));
+        },
       ),
     );
   }

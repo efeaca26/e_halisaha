@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'dart:math';
 import '../../modeller/saha_modeli.dart';
 import '../../cekirdek/servisler/rezervasyon_servisi.dart';
-import '../../cekirdek/servisler/odeme_servisi.dart'; // <--- YENİ: Kartı kaydetmek için bunu ekledik
+import '../../cekirdek/servisler/odeme_servisi.dart';
 import '../anasayfa/anasayfa_ekrani.dart';
 
 class OdemeEkrani extends StatefulWidget {
@@ -69,7 +69,7 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
 
     // 2. KARTI PROFİLE KAYDET (YENİ EKLENEN KISIM) 🚀
     // Sadece "Kredi Kartı" ile ödeme yapıldıysa ve kart numarası doluysa kaydet
-    if (_secilenYontem == 0 || _secilenYontem == 1) { // Her iki yöntemde de kart bilgisi giriliyor
+    if (_kartNoController.text.isNotEmpty) {
       OdemeServisi.kartEkle(
         _kartNoController.text, 
         _isimController.text.isEmpty ? "Kullanılan Kart" : _isimController.text
