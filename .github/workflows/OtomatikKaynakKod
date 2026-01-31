@@ -1,0 +1,34 @@
+name: Otomatik Kaynak Kod Yedekleyici
+
+on:
+  push:
+    branches:
+      - main  # DİKKAT: Senin ana dalın 'master' ise burayı 'master' yap
+
+jobs:
+  yedekle:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Release oluşturmak için yazma izni
+
+    steps:
+      - name: Kodları Çek
+        uses: actions/checkout@v4
+
+      - name: Sürüm Etiketi Oluştur
+        id: tag_version
+        # Her çalışmada artan bir numara verir (Örn: v1.0-5)
+        run: echo "TAG_NAME=v1.0-${{ github.run_number }}" >> $GITHUB_ENV
+
+      - name: Release Oluştur
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: Otomatik Yedek ${{ env.TAG_NAME }}
+          body: |
+            Bu sürüm otomatik olarak oluşturuldu.
+            Github Run ID: ${{ github.run_number }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
