@@ -1,4 +1,4 @@
-name: Otomatik Yedek
+name: Otomatik Surum Olusturucu
 on:
   push:
     branches: [ "main" ]
@@ -10,12 +10,12 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Sürüm Oluştur
+      - name: Surum Numarasi Olustur
         run: echo "TAG_NAME=v1.0-${{ github.run_number }}" >> $GITHUB_ENV
       - name: Release Yap
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.TAG_NAME }}
-          name: Yedek ${{ env.TAG_NAME }}
+          name: ${{ env.TAG_NAME }} # Burada sadece v1.0-1 gibi sürüm numarası yazar
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
