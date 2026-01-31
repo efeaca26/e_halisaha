@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../modeller/saha_modeli.dart';
-import '../../cekirdek/servisler/ornek_veri.dart';
-import '../odeme/odeme_ekrani.dart';
+import '../anasayfa/anasayfa_ekrani.dart'; // <--- Ana sayfayı çağırdık
 
 class SahaDetayEkrani extends StatefulWidget {
   final SahaModeli saha;
+
   const SahaDetayEkrani({super.key, required this.saha});
 
   @override
@@ -12,144 +12,191 @@ class SahaDetayEkrani extends StatefulWidget {
 }
 
 class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
-  // Saat kutucukları (17:00 - 24:00 arası)
-  final List<String> saatler = [
-    '17:00', '18:00', '19:00', '20:00', 
-    '21:00', '22:00', '23:00', '24:00'
-  ];
+  bool _yukleniyor = false; // Butonda dönen yükleniyor simgesi için
 
-  List<String> doluSaatler = [];
-  String? secilenSaat; // Sarı durum
+  void _rezervasyonYap() async {
+    setState(() => _yukleniyor = true);
 
-  @override
-  void initState() {
-    super.initState();
-    // Sahte sunucudan dolu saatleri çek
-    doluSaatler = SahteVeriServisi.doluSaatleriGetir(widget.saha.id);
+    // 1. İşlem yapılıyormuş gibi bekle (Simülasyon)
+    await Future.delayed(const Duration(seconds: 1));
+
+    if (!mounted) return;
+
+    // 2. Başarılı Mesajı Göster
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Rezervasyonunuz başarıyla alındı! 🎉"),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 2),
+      ),
+    );
+
+    setState(() => _yukleniyor = false);
+
+    // 3. ANA SAYFAYA YÖNLENDİR (Eskiden Giriş Ekranıydı)
+    // pushAndRemoveUntil: Geri tuşuna basınca tekrar bu sayfaya dönmesin diye geçmişi siler.
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const AnasayfaEkrani()),
+      (route) => false,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.saha.isim)),
-      body: Column(
-        children: [
-          // Özellik İkonları
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: Colors.grey[100],
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: widget.saha.ozellikler.map((ozellik) {
-                return Column(
-                  children: [
-                    const Icon(Icons.check_circle, color: Colors.green),
-                    Text(ozellik, style: const TextStyle(fontSize: 10)),
-                  ],
-                );
-              }).toList(),
-            ),
-          ),
-          
-          const SizedBox(height: 20),
-          const Text("📅 Tarih: Bugün (30 Ocak)", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 10),
-
-          // Grid Yapısı (Otobüs koltuğu seçer gibi)
-          Expanded(
-            child: GridView.builder(
-              padding: const EdgeInsets.all(20),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3, // Yan yana 3 kutu
-                childAspectRatio: 2.5,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
+      backgroundColor: const Color(0xFFF0FDF4), // green-50
+      body: CustomScrollView(
+        slivers: [
+          // --- ÜST RESİM VE GERİ BUTONU ---
+          SliverAppBar(
+            expandedHeight: 250,
+            pinned: true,
+            backgroundColor: const Color(0xFF22C55E),
+            flexibleSpace: FlexibleSpaceBar(
+              background: Image.asset(
+                widget.saha.resimYolu,
+                fit: BoxFit.cover,
               ),
-              itemCount: saatler.length,
-              itemBuilder: (context, index) {
-                String saat = saatler[index];
-                bool isDolu = doluSaatler.contains(saat);
-                bool isSecili = secilenSaat == saat;
-
-                return GestureDetector(
-                  onTap: () {
-                    if (isDolu) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                         const SnackBar(content: Text("Bu saat maalesef dolu!")),
-                      );
-                      return;
-                    }
-                    setState(() {
-                      //  Tek seçim hakkı
-                      secilenSaat = saat; 
-                    });
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      // Renk Mantığı
-                      color: isDolu ? Colors.red[300] : (isSecili ? Colors.orange : Colors.green[400]),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.black12),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      saat,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                );
-              },
+            ),
+            leading: Container(
+              margin: const EdgeInsets.all(8),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.black),
+                onPressed: () => Navigator.pop(context),
+              ),
             ),
           ),
 
-          // Renk Açıklamaları
-          const Padding(
-            padding: EdgeInsets.only(bottom: 10.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.circle, color: Colors.green, size: 14), Text(" Boş "),
-                Icon(Icons.circle, color: Colors.red, size: 14), Text(" Dolu "),
-                Icon(Icons.circle, color: Colors.orange, size: 14), Text(" Seçili"),
-              ],
-            ),
-          ),
-
-          // Alt Bar - Devam Et Butonu
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [BoxShadow(blurRadius: 10, color: Colors.black12)],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
+          // --- DETAYLAR ---
+          SliverToBoxAdapter(
+            child: Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Kapora: ${widget.saha.kapora} TL", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                    const Text("Toplam: Kalan sahada ödenir"),
+                    // Başlık ve Puan
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            widget.saha.isim,
+                            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFDCFCE7),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.star, color: Color(0xFF15803D), size: 18),
+                              const SizedBox(width: 4),
+                              Text(
+                                "${widget.saha.puan}",
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF15803D)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "📍 ${widget.saha.tamKonum}",
+                      style: const TextStyle(color: Colors.grey, fontSize: 14),
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    
+                    // Özellikler (Grid)
+                    const Text("Saha Özellikleri", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: widget.saha.ozellikler.map((ozellik) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey[300]!)
+                          ),
+                          child: Text(ozellik, style: const TextStyle(color: Colors.black54)),
+                        );
+                      }).toList(),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Açıklama (Lorem Ipsum yerine sabit yazı)
+                    const Text("Açıklama", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    const Text(
+                      "Bu saha profesyonel suni çim ile kaplanmış olup, gece maçları için özel LED aydınlatmaya sahiptir. Maç sonrası duş imkanı ve kafeterya hizmeti bulunmaktadır.",
+                      style: TextStyle(color: Colors.grey, height: 1.5),
+                    ),
+                    
+                    const SizedBox(height: 100), // Buton için boşluk
                   ],
                 ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
-                  ),
-                  onPressed: secilenSaat == null ? null : () {
-                    // Kilit mantığını başlatmak için ödemeye git
-                    Navigator.push(
-                      context, 
-                      MaterialPageRoute(builder: (context) => OdemeEkrani(saha: widget.saha, saat: secilenSaat!))
-                    );
-                  },
-                  child: const Text("DEVAM ET >", style: TextStyle(color: Colors.white)),
-                )
+              ),
+            ),
+          ),
+        ],
+      ),
+
+      // --- ALT REZERVASYON BUTONU ---
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20)],
+        ),
+        child: Row(
+          children: [
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("Toplam Ücret", style: TextStyle(color: Colors.grey)),
+                Text(
+                  "${widget.saha.fiyat.toStringAsFixed(0)}₺",
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF22C55E)),
+                ),
               ],
             ),
-          )
-        ],
+            const SizedBox(width: 20),
+            Expanded(
+              child: SizedBox(
+                height: 55,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF22C55E),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ),
+                  onPressed: _yukleniyor ? null : _rezervasyonYap,
+                  child: _yukleniyor 
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text("Rezervasyon Yap", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
