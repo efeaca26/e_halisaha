@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../modeller/saha_modeli.dart';
-import '../../modeller/oyuncu_modeli.dart'; // <--- YENİ MODEL
+import '../../modeller/oyuncu_modeli.dart';
 import '../../ekranlar/odeme/odeme_ekrani.dart';
-import 'oyuncu_secim_ekrani.dart'; // <--- SEÇİM EKRANI
+import 'oyuncu_secim_ekrani.dart';
 
 class SahaDetayEkrani extends StatefulWidget {
   final SahaModeli saha;
