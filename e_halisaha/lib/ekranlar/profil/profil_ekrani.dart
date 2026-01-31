@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart'; // Resim seçici
 import '../../cekirdek/servisler/kimlik_servisi.dart'; // Kimlik servisi
 import '../giris/giris_ekrani.dart'; // Çıkış yapınca gidilecek yer
-import 'profil_alt_sayfalar_yeni.dart'; // Alt sayfalar
-import 'gecmis_rezervasyonlar.dart';
+// SADECE BU İMPORT KALMALI:
+import 'profil_alt_sayfalar_yeni.dart'; 
 
 class ProfilEkrani extends StatefulWidget {
   const ProfilEkrani({super.key});
@@ -34,7 +34,7 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
     final kullanici = KimlikServisi.aktifKullanici;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0FDF4), 
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor, // Temaya uygun renk
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -82,7 +82,7 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
                     // İsim ve E-posta (Servisten)
                     Text(
                       kullanici?['isim'] ?? "Misafir",
-                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF111827))
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF111827))
                     ),
                     Text(
                       kullanici?['email'] ?? "",
@@ -104,20 +104,31 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
                 context, 
                 icon: Icons.payment, 
                 text: "Ödeme Yöntemleri", 
-                gidilecekSayfa: const GenelAltSayfa(baslik: "Ödemeler", ikon: Icons.credit_card)
+                gidilecekSayfa: const OdemeYontemleriEkrani()
               ),
               _profilMenuItem(
                 context, 
                 icon: Icons.history, 
                 text: "Geçmiş Rezervasyonlar", 
-                // BURAYI DEĞİŞTİRDİK:
                 gidilecekSayfa: const GecmisRezervasyonlarEkrani() 
+              ),
+              _profilMenuItem(
+                context, 
+                icon: Icons.groups_outlined, 
+                text: "Geçmiş Rakipler", 
+                gidilecekSayfa: const GecmisDetayEkrani(baslik: "Geçmiş Rakipler", rakipMi: true)
+              ),
+              _profilMenuItem(
+                context, 
+                icon: Icons.person_add_alt, 
+                text: "Geçmiş Oyuncular", 
+                gidilecekSayfa: const GecmisDetayEkrani(baslik: "Geçmiş Oyuncular", rakipMi: false)
               ),
               _profilMenuItem(
                 context, 
                 icon: Icons.settings_outlined, 
                 text: "Ayarlar", 
-                gidilecekSayfa: const GenelAltSayfa(baslik: "Ayarlar", ikon: Icons.settings)
+                gidilecekSayfa: const AyarlarEkrani()
               ),
               
               const SizedBox(height: 24),
@@ -149,7 +160,7 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)],
       ),
@@ -162,7 +173,7 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
           ),
           child: Icon(icon, color: const Color(0xFF22C55E)),
         ),
-        title: Text(text, style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF374151))),
+        title: Text(text, style: const TextStyle(fontWeight: FontWeight.w600)),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF9CA3AF)),
         onTap: () {
           Navigator.push(context, MaterialPageRoute(builder: (context) => gidilecekSayfa));
