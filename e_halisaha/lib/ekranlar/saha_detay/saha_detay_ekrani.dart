@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../../modeller/saha_modeli.dart'; // Model
+import '../../modeller/saha_modeli.dart';
+import '../../ekranlar/odeme/odeme_ekrani.dart';
 import '../anasayfa/anasayfa_ekrani.dart';
 import '../../cekirdek/servisler/rezervasyon_servisi.dart'; // <--- Hafızayı kontrol etmek için ekledik
 
@@ -141,31 +142,27 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
     return "${dakika.toString().padLeft(2, '0')}:${kSaniye.toString().padLeft(2, '0')}";
   }
 
-  void _rezervasyonYap() async {
-    setState(() => _yukleniyor = true);
-    _zamanlayici?.cancel();
-
-    await Future.delayed(const Duration(seconds: 1));
-
-    if (!mounted) return;
+  void _rezervasyonYap() {
+    // 1. Saat seçili mi kontrolü
+    if (_seciliSaatIndex == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Lütfen bir saat seçiniz!"), backgroundColor: Colors.red));
+      return;
+    }
 
     String secilenSaat = _guncelSaatler[_seciliSaatIndex!]['saat'];
-    
-    // Rezervasyonu Kaydet
-    RezervasyonServisi.rezervasyonEkle(
-      saha: widget.saha, 
-      tarih: _seciliTarih, 
-      saat: secilenSaat
-    );
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("$secilenSaat için rezervasyon tamam! 🎉"),
-        backgroundColor: Colors.green,
+    // 2. Ödeme Ekranına Git (Verileri taşı)
+    // Artık kayıt işlemini burada yapmıyoruz, ödeme ekranında yapacağız.
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => OdemeEkrani(
+          saha: widget.saha,
+          tarih: _seciliTarih,
+          saat: secilenSaat,
+        ),
       ),
     );
-
-    Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const AnasayfaEkrani()), (route) => false);
   }
 
   String _gunAdiGetir(DateTime tarih) {
