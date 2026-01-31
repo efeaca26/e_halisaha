@@ -1,9 +1,9 @@
-import 'dart:io'; // Dosya işlemleri için
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart'; // Resim seçici
-import '../../cekirdek/servisler/kimlik_servisi.dart'; // Kimlik servisi
-import '../giris/giris_ekrani.dart'; // Çıkış yapınca gidilecek yer
-// SADECE BU İMPORT KALMALI:
+import 'package:image_picker/image_picker.dart';
+import '../../cekirdek/servisler/kimlik_servisi.dart';
+import '../giris/giris_ekrani.dart';
+// SADECE YENİ DOSYAYI ÇAĞIRIYORUZ:
 import 'profil_alt_sayfalar_yeni.dart'; 
 
 class ProfilEkrani extends StatefulWidget {
@@ -17,10 +17,8 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
   File? _profilResmi;
   final ImagePicker _picker = ImagePicker();
 
-  // Galeriden resim seçme
   Future<void> _resimSec() async {
     final XFile? secilenDosya = await _picker.pickImage(source: ImageSource.gallery);
-    
     if (secilenDosya != null) {
       setState(() {
         _profilResmi = File(secilenDosya.path);
@@ -30,11 +28,12 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
 
   @override
   Widget build(BuildContext context) {
-    // Aktif kullanıcının bilgilerini al
     final kullanici = KimlikServisi.aktifKullanici;
+    // Tema açık mı koyu mu kontrolü
+    final bool koyuMod = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor, // Temaya uygun renk
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor, 
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -56,10 +55,10 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
                           ),
                           child: CircleAvatar(
                             radius: 60,
-                            backgroundColor: Colors.white,
+                            backgroundColor: koyuMod ? Colors.grey[800] : Colors.white,
                             backgroundImage: _profilResmi != null ? FileImage(_profilResmi!) : null,
                             child: _profilResmi == null 
-                                ? Icon(Icons.person, size: 60, color: Colors.grey[300]) 
+                                ? Icon(Icons.person, size: 60, color: Colors.grey[400]) 
                                 : null,
                           ),
                         ),
@@ -79,32 +78,30 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
                     ),
                     const SizedBox(height: 16),
                     
-                    // İsim ve E-posta (Servisten)
+                    // İsim ve E-posta
                     Text(
                       kullanici?['isim'] ?? "Misafir",
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : const Color(0xFF111827))
+                      style: TextStyle(
+                        fontSize: 24, 
+                        fontWeight: FontWeight.bold, 
+                        color: koyuMod ? Colors.white : const Color(0xFF111827)
+                      )
                     ),
                     Text(
                       kullanici?['email'] ?? "",
-                      style: const TextStyle(fontSize: 14, color: Color(0xFF6B7280))
+                      style: const TextStyle(fontSize: 14, color: Colors.grey)
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 32),
 
-              // --- MENÜLER ---
+              // --- MENÜLER (TÜM ÖZELLİKLER GERİ GELDİ) ---
               _profilMenuItem(
                 context, 
                 icon: Icons.person_outline, 
                 text: "Hesap Bilgileri", 
                 gidilecekSayfa: const HesapBilgileriEkrani()
-              ),
-              _profilMenuItem(
-                context, 
-                icon: Icons.payment, 
-                text: "Ödeme Yöntemleri", 
-                gidilecekSayfa: const OdemeYontemleriEkrani()
               ),
               _profilMenuItem(
                 context, 
@@ -126,9 +123,15 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
               ),
               _profilMenuItem(
                 context, 
+                icon: Icons.payment, 
+                text: "Ödeme Yöntemleri", 
+                gidilecekSayfa: const OdemeYontemleriEkrani() // Artık çalışan ekran
+              ),
+              _profilMenuItem(
+                context, 
                 icon: Icons.settings_outlined, 
                 text: "Ayarlar", 
-                gidilecekSayfa: const AyarlarEkrani()
+                gidilecekSayfa: const AyarlarEkrani() // Tema ayarları burada
               ),
               
               const SizedBox(height: 24),
@@ -157,10 +160,12 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
   }
 
   Widget _profilMenuItem(BuildContext context, {required IconData icon, required String text, required Widget gidilecekSayfa}) {
+    final bool koyuMod = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: koyuMod ? const Color(0xFF1F2937) : Colors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)],
       ),
@@ -168,13 +173,13 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: const Color(0xFFF0FDF4),
+            color: koyuMod ? Colors.black26 : const Color(0xFFF0FDF4),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: const Color(0xFF22C55E)),
         ),
-        title: Text(text, style: const TextStyle(fontWeight: FontWeight.w600)),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF9CA3AF)),
+        title: Text(text, style: TextStyle(fontWeight: FontWeight.w600, color: koyuMod ? Colors.white : const Color(0xFF374151))),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
         onTap: () {
           Navigator.push(context, MaterialPageRoute(builder: (context) => gidilecekSayfa));
         },
