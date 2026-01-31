@@ -10,12 +10,22 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+
+      - name: Tarih ve Saat Bilgisi Al
+        id: date
+        # Türkiye saati (UTC+3) için ayarlandı
+        run: echo "DEPLOY_DATE=$(date -d '+3 hours' +'%d.%m.%Y %H:%M')" >> $GITHUB_ENV
+
       - name: Surum Numarasi Olustur
         run: echo "TAG_NAME=v1.0-${{ github.run_number }}" >> $GITHUB_ENV
+
       - name: Release Yap
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ env.TAG_NAME }}
-          name: ${{ env.TAG_NAME }} # Burada sadece v1.0-1 gibi sürüm numarası yazar
+          name: ${{ env.TAG_NAME }}
+          body: |
+            Yükleme Tarihi: ${{ env.DEPLOY_DATE }}
+            İşlem Numarası: #${{ github.run_number }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
