@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart'; // Resim seçici
 import '../../cekirdek/servisler/kimlik_servisi.dart'; // Kimlik servisi
 import '../giris/giris_ekrani.dart'; // Çıkış yapınca gidilecek yer
 import 'profil_alt_sayfalar.dart'; // Alt sayfalar
+import 'gecmis_rezervasyonlar.dart';
 
 class ProfilEkrani extends StatefulWidget {
   const ProfilEkrani({super.key});
@@ -109,7 +110,8 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
                 context, 
                 icon: Icons.history, 
                 text: "Geçmiş Rezervasyonlar", 
-                gidilecekSayfa: const GenelAltSayfa(baslik: "Geçmiş", ikon: Icons.history)
+                // BURAYI DEĞİŞTİRDİK:
+                gidilecekSayfa: const GecmisRezervasyonlarEkrani() 
               ),
               _profilMenuItem(
                 context, 

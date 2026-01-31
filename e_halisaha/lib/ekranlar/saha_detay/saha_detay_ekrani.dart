@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../modeller/saha_modeli.dart';
+import '../../cekirdek/servisler/rezervasyon_servisi.dart';
 import '../anasayfa/anasayfa_ekrani.dart';
 
 class SahaDetayEkrani extends StatefulWidget {
@@ -129,20 +130,34 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
     setState(() => _yukleniyor = true);
     _zamanlayici?.cancel();
 
+    // Simülasyon beklemesi
     await Future.delayed(const Duration(seconds: 1));
 
     if (!mounted) return;
 
+    // --- YENİ: REZERVASYONU KAYDET ---
+    String secilenSaat = _guncelSaatler[_seciliSaatIndex!]['saat'];
+    RezervasyonServisi.rezervasyonEkle(
+      saha: widget.saha, 
+      tarih: _seciliTarih, 
+      saat: secilenSaat
+    );
+    // ---------------------------------
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text("${_guncelSaatler[_seciliSaatIndex!]['saat']} için rezervasyon tamam! 🎉"),
+        content: Text("$secilenSaat için rezervasyon alındı! 🎉"),
         backgroundColor: Colors.green,
       ),
     );
 
-    Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const AnasayfaEkrani()), (route) => false);
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (context) => const AnasayfaEkrani()),
+      (route) => false,
+    );
   }
-
+  
   // Tarihi Türkçe Gün Adına Çevir
   String _gunAdiGetir(DateTime tarih) {
     List<String> gunler = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
