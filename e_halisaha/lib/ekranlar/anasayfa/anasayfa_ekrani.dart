@@ -4,7 +4,7 @@ import '../../modeller/saha_modeli.dart';
 import '../../cekirdek/servisler/ornek_veri.dart';
 import '../saha_detay/saha_detay_ekrani.dart';
 import '../profil/profil_ekrani.dart';
-import '../rakip_bul/rakip_bul_ekrani.dart'; 
+import '../rakip_bul/rakip_bul_ekrani.dart';
 
 class AnasayfaEkrani extends StatefulWidget {
   const AnasayfaEkrani({super.key});
@@ -16,7 +16,6 @@ class AnasayfaEkrani extends StatefulWidget {
 class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
   int _seciliIndex = 0;
 
-  // Sayfalar Listesi
   final List<Widget> _sayfalar = [
     const AnasayfaIcerik(),
     const HaritaEkrani(),
@@ -40,21 +39,42 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
   }
 }
 
-// ANA SAYFA İÇERİĞİ
-class AnasayfaIcerik extends StatelessWidget {
+class AnasayfaIcerik extends StatefulWidget {
   const AnasayfaIcerik({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final List<SahaModeli> sahalar = SahteVeriServisi.sahalariGetir();
+  State<AnasayfaIcerik> createState() => _AnasayfaIcerikState();
+}
 
+class _AnasayfaIcerikState extends State<AnasayfaIcerik> {
+  final List<SahaModeli> tumSahalar = SahteVeriServisi.sahalariGetir();
+  List<SahaModeli> goruntulenenSahalar = [];
+
+  @override
+  void initState() {
+    super.initState();
+    goruntulenenSahalar = tumSahalar;
+  }
+
+  void _saharaAra(String aramaMetni) {
+    setState(() {
+      goruntulenenSahalar = tumSahalar.where((saha) {
+        final isim = saha.isim.toLowerCase();
+        final ilce = saha.ilce.toLowerCase();
+        final aranan = aramaMetni.toLowerCase();
+        return isim.contains(aranan) || ilce.contains(aranan);
+      }).toList();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ÜST BAŞLIK
             const Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -67,7 +87,6 @@ class AnasayfaIcerik extends StatelessWidget {
                 ),
                 CircleAvatar(
                   radius: 25,
-                  // Eğer assets/images/logo.png yoksa hata vermemesi için ikon koyduk
                   backgroundColor: Color(0xFF22C55E),
                   child: Icon(Icons.sports_soccer, color: Colors.white),
                 )
@@ -75,20 +94,19 @@ class AnasayfaIcerik extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            // ARAMA ÇUBUĞU
             TextField(
+              onChanged: _saharaAra,
               decoration: InputDecoration(
                 hintText: "Saha, ilçe veya takım ara...",
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: Colors.white, // Basit renk (Hata vermemesi için)
               ),
             ),
             
             const SizedBox(height: 20),
 
-            // --- RAKİP BUL KARTI ---
             GestureDetector(
               onTap: () {
                 Navigator.push(context, MaterialPageRoute(builder: (context) => const RakipBulEkrani()));
@@ -122,61 +140,47 @@ class AnasayfaIcerik extends StatelessWidget {
                 ),
               ),
             ),
-            // -----------------------------
 
             const SizedBox(height: 24),
             const Text("Popüler Sahalar", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
 
-            // SAHA LİSTESİ
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: sahalar.length,
-              itemBuilder: (context, index) {
-                final saha = sahalar[index];
-                return GestureDetector(
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SahaDetayEkrani(saha: saha))),
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 20),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.1), blurRadius: 10)]),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        ClipRRect(
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-                          child: Image.asset(saha.resimYolu, height: 150, width: double.infinity, fit: BoxFit.cover),
+            goruntulenenSahalar.isEmpty 
+              ? const Center(child: Text("Aradığınız kriterde saha bulunamadı."))
+              : ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: goruntulenenSahalar.length,
+                  itemBuilder: (context, index) {
+                    final saha = goruntulenenSahalar[index];
+                    return GestureDetector(
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SahaDetayEkrani(saha: saha))),
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]
                         ),
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(saha.isim, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(color: const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(8)),
-                                    child: Row(children: [const Icon(Icons.star, size: 14, color: Color(0xFF15803D)), const SizedBox(width: 4), Text("${saha.puan}", style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF15803D)))]),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              // DÜZELTME BURADA YAPILDI: saha.il kaldırıldı, saha.tamKonum eklendi.
-                              Text("📍 ${saha.tamKonum}", style: const TextStyle(color: Colors.grey)), 
-                              const SizedBox(height: 8),
-                              Text("${saha.fiyat.toStringAsFixed(0)}₺ / Saat", style: const TextStyle(color: Color(0xFF22C55E), fontWeight: FontWeight.bold)),
-                            ],
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ClipRRect(borderRadius: const BorderRadius.vertical(top: Radius.circular(20)), child: Image.asset(saha.resimYolu, height: 150, width: double.infinity, fit: BoxFit.cover)),
+                            Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                Text(saha.isim, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                Text("📍 ${saha.tamKonum}", style: const TextStyle(color: Colors.grey)),
+                                const SizedBox(height: 8),
+                                Text("${saha.fiyat.toStringAsFixed(0)}₺ / Saat", style: const TextStyle(color: Color(0xFF22C55E), fontWeight: FontWeight.bold)),
+                              ]),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
+                      ),
+                    );
+                  },
+                ),
           ],
         ),
       ),

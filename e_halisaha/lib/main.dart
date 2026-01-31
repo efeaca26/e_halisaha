@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart'; // <--- BU PAKETİ EKLEDİK
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'ekranlar/giris/giris_ekrani.dart';
+
+// TEMA YÖNETİCİSİ (Global Değişken)
+ValueNotifier<ThemeMode> temaYoneticisi = ValueNotifier(ThemeMode.light);
 
 void main() {
   runApp(const EHalisahaUygulamasi());
@@ -11,52 +14,50 @@ class EHalisahaUygulamasi extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'E-HalıSaha',
-      debugShowCheckedModeBanner: false,
-      
-      // --- İŞTE EKSİK OLAN KISIM BURASIYDI ---
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('tr', 'TR'), // Türkçe
-        Locale('en', 'US'), // İngilizce (Yedek)
-      ],
-      // ----------------------------------------
-
-      theme: ThemeData(
-        primaryColor: const Color(0xFF22C55E),
-        scaffoldBackgroundColor: const Color(0xFFF0FDF4),
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF22C55E),
-          primary: const Color(0xFF22C55E),
-          secondary: const Color(0xFF3B82F6),
-          error: const Color(0xFFEF4444),
-          surface: Colors.white,
-        ),
-        useMaterial3: true,
-        fontFamily: 'Roboto',
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: temaYoneticisi,
+      builder: (context, currentMode, child) {
+        return MaterialApp(
+          title: 'E-HalıSaha',
+          debugShowCheckedModeBanner: false,
+          
+          // --- TEMA AYARLARI ---
+          themeMode: currentMode,
+          theme: ThemeData(
+            brightness: Brightness.light,
+            primaryColor: const Color(0xFF22C55E),
+            scaffoldBackgroundColor: const Color(0xFFF0FDF4),
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Colors.white, 
+              foregroundColor: Colors.black,
+              elevation: 0
+            ),
+            // Diğer light tema ayarları...
           ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+          darkTheme: ThemeData(
+            brightness: Brightness.dark,
+            primaryColor: const Color(0xFF22C55E),
+            scaffoldBackgroundColor: const Color(0xFF111827), // Koyu gri
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Color(0xFF1F2937),
+              foregroundColor: Colors.white,
+              elevation: 0
+            ),
+            // Diğer dark tema ayarları...
           ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF22C55E), width: 2),
-          ),
-        ),
-      ),
-      home: const GirisEkrani(),
+          
+          // --- DİL AYARLARI ---
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('tr', 'TR'),
+          ],
+          home: const GirisEkrani(),
+        );
+      },
     );
   }
 }

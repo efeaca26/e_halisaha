@@ -112,8 +112,19 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
           SliverAppBar(
             expandedHeight: 200, pinned: true, backgroundColor: const Color(0xFF22C55E),
             flexibleSpace: FlexibleSpaceBar(background: Image.asset(widget.saha.resimYolu, fit: BoxFit.cover)),
-            leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
+            leading: Container(
+            margin: const EdgeInsets.all(8),
+            // Geri Tuşu Arkaplanı
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.5), // Yarı saydam siyah (Her resimde görünür)
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white), // İkon beyaz
+              onPressed: () => Navigator.pop(context),
+            ),
           ),
+        ),
 
           SliverToBoxAdapter(
             child: Container(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../cekirdek/servisler/kimlik_servisi.dart'; // Servisimizi çağırdık
 import '../anasayfa/anasayfa_ekrani.dart';
 
+
 class GirisEkrani extends StatefulWidget {
   const GirisEkrani({super.key});
 
