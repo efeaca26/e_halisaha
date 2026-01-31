@@ -1,4 +1,4 @@
-import 'dart:async'; // Zamanlayıcı için gerekli
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../modeller/saha_modeli.dart';
 import '../anasayfa/anasayfa_ekrani.dart';
@@ -15,44 +15,84 @@ class SahaDetayEkrani extends StatefulWidget {
 class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
   bool _yukleniyor = false;
   
-  // --- SAAT YÖNETİMİ ---
-  // Hangi saat seçildi?
+  // --- TARİH VE SAAT YÖNETİMİ ---
+  DateTime _seciliTarih = DateTime.now(); // Başlangıçta bugün seçili
   int? _seciliSaatIndex;
   
-  // 5 Dakikalık (300 saniye) Sayaç
   Timer? _zamanlayici;
   int _kalanSure = 300; 
 
-  // SAHTE SAAT VERİLERİ (17:00 - 23:00 arası)
-  // Durumlar: "bos" (Yeşil), "dolu" (Kırmızı), "beklemede" (Sarı - Başkası bakıyor)
-  final List<Map<String, dynamic>> _saatler = [
-    {"saat": "17:00", "durum": "dolu"},      // Kırmızı
-    {"saat": "18:00", "durum": "bos"},       // Yeşil
-    {"saat": "19:00", "durum": "beklemede"}, // Sarı (Başkası bakıyor)
-    {"saat": "20:00", "durum": "bos"},       // Yeşil
-    {"saat": "21:00", "durum": "bos"},       // Yeşil
-    {"saat": "22:00", "durum": "dolu"},      // Kırmızı
-    {"saat": "23:00", "durum": "bos"},       // Yeşil
-  ];
+  // Abonelik Simülasyonu: 
+  // Çarşamba günleri 22:00-23:00 arası "Abone" olduğu için hep dolu olsun.
+  // Cumartesi günleri 19:00-20:00 arası "Abone".
+  
+  // Dinamik Saat Listesi (Seçilen güne göre değişir)
+  List<Map<String, dynamic>> _guncelSaatler = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _saatleriYenile(); // Sayfa açılınca bugünün saatlerini yükle
+  }
 
   @override
   void dispose() {
-    _zamanlayici?.cancel(); // Sayfadan çıkarsa sayacı durdur
+    _zamanlayici?.cancel();
     super.dispose();
+  }
+
+  // --- MANTIK: GÜNE GÖRE SAATLERİ OLUŞTUR ---
+  void _saatleriYenile() {
+    // Önce seçimi sıfırla
+    _seciliSaatIndex = null;
+    _zamanlayici?.cancel();
+    
+    // Sabit saat listesi şablonu
+    List<String> saatAraliklari = [
+      "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00"
+    ];
+
+    List<Map<String, dynamic>> yeniListe = [];
+
+    // Hangi gün seçili? (1: Pzt, ... 7: Paz)
+    int gun = _seciliTarih.weekday; 
+
+    for (var saat in saatAraliklari) {
+      String durum = "bos"; // Varsayılan boş
+
+      // 1. ABONE KONTROLÜ (Senaryo Gereği)
+      if (gun == 3 && saat == "22:00") { 
+        durum = "dolu"; // Çarşamba 22:00 Abone var
+      } 
+      else if (gun == 6 && saat == "19:00") {
+        durum = "dolu"; // Cumartesi 19:00 Abone var
+      }
+      // 2. RASTGELE DOLULUK (Gerçekçilik için)
+      else if ((gun + saat.length) % 5 == 0) {
+        durum = "dolu";
+      }
+      else if ((gun + saat.length) % 7 == 0) {
+        durum = "beklemede"; // Sarı renk
+      }
+
+      yeniListe.add({"saat": saat, "durum": durum});
+    }
+
+    setState(() {
+      _guncelSaatler = yeniListe;
+    });
   }
 
   // --- SAYAÇ FONKSİYONLARI ---
   void _sayaciBaslat() {
-    // Varsa eski sayacı durdur ve süreyi sıfırla
     _zamanlayici?.cancel();
-    setState(() => _kalanSure = 300); // 300 saniye = 5 dakika
+    setState(() => _kalanSure = 300); // 5 dakika
 
     _zamanlayici = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
         if (_kalanSure > 0) {
           _kalanSure--;
         } else {
-          // SÜRE BİTTİ!
           timer.cancel();
           _sureDolduIslemi();
         }
@@ -61,21 +101,16 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
   }
 
   void _sureDolduIslemi() {
-    // Kullanıcıya uyarı ver ve ana sayfaya at
     showDialog(
       context: context,
-      barrierDismissible: false, // Boşluğa tıklayıp kapatamasın
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: const Text("Süre Doldu! ⏳"),
-        content: const Text("Seçtiğiniz saat için işlem süreniz (5 dakika) doldu. Ana sayfaya yönlendiriliyorsunuz."),
+        content: const Text("İşlem süreniz doldu. Ana sayfaya yönlendiriliyorsunuz."),
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => const AnasayfaEkrani()),
-                (route) => false,
-              );
+              Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const AnasayfaEkrani()), (route) => false);
             },
             child: const Text("Tamam"),
           )
@@ -84,7 +119,6 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
     );
   }
 
-  // Saniyeyi Dakika:Saniye formatına çevirir (Örn: 04:59)
   String _sureyiFormatla(int saniye) {
     int dakika = saniye ~/ 60;
     int kSaniye = saniye % 60;
@@ -92,13 +126,8 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
   }
 
   void _rezervasyonYap() async {
-    if (_seciliSaatIndex == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Lütfen boş bir saat seçiniz!"), backgroundColor: Colors.red));
-      return;
-    }
-
     setState(() => _yukleniyor = true);
-    _zamanlayici?.cancel(); // Rezervasyon yapılırken sayacı durdur
+    _zamanlayici?.cancel();
 
     await Future.delayed(const Duration(seconds: 1));
 
@@ -106,16 +135,18 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text("Saat ${_saatler[_seciliSaatIndex!]['saat']} için rezervasyon alındı! 🎉"),
+        content: Text("${_guncelSaatler[_seciliSaatIndex!]['saat']} için rezervasyon tamam! 🎉"),
         backgroundColor: Colors.green,
       ),
     );
 
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (context) => const AnasayfaEkrani()),
-      (route) => false,
-    );
+    Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const AnasayfaEkrani()), (route) => false);
+  }
+
+  // Tarihi Türkçe Gün Adına Çevir
+  String _gunAdiGetir(DateTime tarih) {
+    List<String> gunler = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
+    return gunler[tarih.weekday - 1];
   }
 
   @override
@@ -142,7 +173,6 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
             ),
           ),
 
-          // --- İÇERİK ---
           SliverToBoxAdapter(
             child: Container(
               decoration: const BoxDecoration(
@@ -158,64 +188,114 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                   Text("📍 ${widget.saha.tamKonum}", style: const TextStyle(color: Colors.grey)),
                   
                   const SizedBox(height: 24),
+
+                  // --- TARİH SEÇİMİ (HAFTALIK TAKVİM) ---
+                  const Text("Tarih Seçiniz", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    height: 80,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: 7, // Bir haftalık takvim
+                      itemBuilder: (context, index) {
+                        DateTime tarih = DateTime.now().add(Duration(days: index));
+                        bool secili = _seciliTarih.day == tarih.day;
+
+                        return GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _seciliTarih = tarih;
+                              _saatleriYenile(); // Günü değiştirince saatleri güncelle
+                            });
+                          },
+                          child: Container(
+                            width: 60,
+                            margin: const EdgeInsets.only(right: 10),
+                            decoration: BoxDecoration(
+                              color: secili ? const Color(0xFF22C55E) : Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: secili ? Colors.transparent : Colors.grey.shade300),
+                              boxShadow: secili ? [BoxShadow(color: const Color(0xFF22C55E).withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))] : [],
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  _gunAdiGetir(tarih), 
+                                  style: TextStyle(color: secili ? Colors.white : Colors.grey, fontWeight: FontWeight.bold)
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  "${tarih.day}", 
+                                  style: TextStyle(color: secili ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 18)
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                   
-                  // --- SAAT SEÇİM GRID'İ ---
-                  const Text("Saat Seçimi", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  if (_seciliSaatIndex != null)
-                    Text("Kalan Süre: ${_sureyiFormatla(_kalanSure)}", style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 24),
+                  
+                  // --- SAATLER GRID ---
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text("Müsait Saatler", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      if (_seciliSaatIndex != null)
+                        Text("Süre: ${_sureyiFormatla(_kalanSure)}", style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
                   
                   const SizedBox(height: 12),
                   GridView.builder(
-                    shrinkWrap: true, // ScrollView içinde olduğu için şart
+                    shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 4, // Yan yana 4 kutu
+                      crossAxisCount: 4,
                       childAspectRatio: 1.5,
                       crossAxisSpacing: 10,
                       mainAxisSpacing: 10,
                     ),
-                    itemCount: _saatler.length,
+                    itemCount: _guncelSaatler.length,
                     itemBuilder: (context, index) {
-                      final saatVerisi = _saatler[index];
+                      final saatVerisi = _guncelSaatler[index];
                       String durum = saatVerisi['durum'];
                       bool secili = _seciliSaatIndex == index;
 
-                      // Renk Mantığı
                       Color kutuRengi;
                       Color yaziRengi = Colors.white;
 
                       if (secili) {
-                        kutuRengi = const Color(0xFF22C55E); // Seçtiğim (Koyu Yeşil)
+                        kutuRengi = const Color(0xFF22C55E);
                       } else if (durum == "dolu") {
-                        kutuRengi = Colors.red.shade400; // Dolu
+                        kutuRengi = Colors.red.shade400;
                       } else if (durum == "beklemede") {
-                        kutuRengi = Colors.amber; // Başkası inceliyor
+                        kutuRengi = Colors.amber;
                         yaziRengi = Colors.black;
                       } else {
-                        kutuRengi = Colors.green.shade100; // Boş (Açık Yeşil)
+                        kutuRengi = Colors.green.shade100;
                         yaziRengi = Colors.green.shade900;
                       }
 
                       return GestureDetector(
                         onTap: () {
-                          // Sadece "bos" olanlar veya zaten "kendi seçtiğim" tıklanabilir
                           if (durum == "bos" || secili) {
                             setState(() {
                               if (secili) {
-                                // Seçimi kaldır
                                 _seciliSaatIndex = null;
-                                _zamanlayici?.cancel(); // Sayacı durdur
+                                _zamanlayici?.cancel();
                               } else {
-                                // Yeni seçim yap
                                 _seciliSaatIndex = index;
-                                _sayaciBaslat(); // Sayacı başlat (5 dk)
+                                _sayaciBaslat();
                               }
                             });
                           } else if (durum == "dolu") {
-                             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Bu saat dolu!"), duration: Duration(milliseconds: 500)));
+                             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Bu saat dolu! (Abone veya Rezervasyon)"), duration: Duration(milliseconds: 500)));
                           } else if (durum == "beklemede") {
-                             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Bu saati şu an başkası inceliyor."), duration: Duration(milliseconds: 500)));
+                             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Bu saat şu an inceleniyor."), duration: Duration(milliseconds: 500)));
                           }
                         },
                         child: Container(
@@ -236,17 +316,17 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
 
                   const SizedBox(height: 24),
                   
-                  // Renk Açıklamaları (Legend)
+                  // Legend
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       _renkAciklama(Colors.green.shade100, "Boş"),
                       _renkAciklama(Colors.amber, "İnceleniyor"),
-                      _renkAciklama(Colors.red.shade400, "Dolu"),
+                      _renkAciklama(Colors.red.shade400, "Dolu/Abone"),
                     ],
                   ),
                   
-                  const SizedBox(height: 80), // Alttaki buton için boşluk
+                  const SizedBox(height: 80),
                 ],
               ),
             ),
@@ -254,12 +334,11 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
         ],
       ),
 
-      // --- REZERVASYON BUTONU ---
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
           color: Colors.white,
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20)],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20)],
         ),
         child: Row(
           children: [
@@ -280,7 +359,7 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                 height: 55,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _seciliSaatIndex != null ? const Color(0xFF22C55E) : Colors.grey, // Seçim yoksa gri
+                    backgroundColor: _seciliSaatIndex != null ? const Color(0xFF22C55E) : Colors.grey,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                   onPressed: (_yukleniyor || _seciliSaatIndex == null) ? null : _rezervasyonYap,
