@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart'; // <--- GPS Paketi
 import '../../modeller/saha_modeli.dart';
 import '../../cekirdek/servisler/ornek_veri.dart';
 import '../saha_detay/saha_detay_ekrani.dart';
@@ -13,7 +14,6 @@ class HaritaEkrani extends StatefulWidget {
 }
 
 class _HaritaEkraniState extends State<HaritaEkrani> {
-  // Tüm sahalar ve filtreli sahalar
   List<SahaModeli> tumSahalar = [];
   List<SahaModeli> goruntulenenSahalar = [];
   
@@ -21,10 +21,9 @@ class _HaritaEkraniState extends State<HaritaEkrani> {
   final MapController _mapController = MapController();
   final TextEditingController _aramaController = TextEditingController();
 
-  // Gebze Merkez
-  final LatLng _merkezKonum = const LatLng(40.8028, 29.4307);
+  // Varsayılan Konum (Gebze)
+  LatLng _merkezKonum = const LatLng(40.8028, 29.4307);
 
-  // Filtre Durumları
   final List<String> _aktifFiltreler = [];
   final List<String> _tumOzellikler = ["Kapalı Saha", "Duş", "Otopark", "Kafe", "Servis"];
 
@@ -32,43 +31,81 @@ class _HaritaEkraniState extends State<HaritaEkrani> {
   void initState() {
     super.initState();
     tumSahalar = SahteVeriServisi.sahalariGetir();
-    goruntulenenSahalar = tumSahalar; // Başlangıçta hepsi görünsün
+    goruntulenenSahalar = tumSahalar;
   }
 
-  // --- MANTIK: FİLTRELEME ---
+  // --- GPS: KONUMA GİT ---
+  Future<void> _konumaGit() async {
+    bool servisAcikMi;
+    LocationPermission izin;
+
+    // 1. GPS Açık mı?
+    servisAcikMi = await Geolocator.isLocationServiceEnabled();
+    if (!servisAcikMi) {
+      if (mounted) _hataGoster("Lütfen telefonunuzun konum servisini açın.");
+      return;
+    }
+
+    // 2. İzin Kontrolü
+    izin = await Geolocator.checkPermission();
+    if (izin == LocationPermission.denied) {
+      izin = await Geolocator.requestPermission();
+      if (izin == LocationPermission.denied) {
+        if (mounted) _hataGoster("Konum izni reddedildi.");
+        return;
+      }
+    }
+
+    if (izin == LocationPermission.deniedForever) {
+      if (mounted) _hataGoster("Konum izni kalıcı olarak reddedildi. Ayarlardan açmanız lazım.");
+      return;
+    }
+
+    // 3. Konumu Al ve Haritayı Kaydır
+    try {
+      Position konum = await Geolocator.getCurrentPosition();
+      
+      // Haritayı hareket ettir
+      _mapController.move(LatLng(konum.latitude, konum.longitude), 15);
+      
+      // Merkez konumu güncelle (Belki ileride lazım olur)
+      setState(() {
+        _merkezKonum = LatLng(konum.latitude, konum.longitude);
+      });
+
+    } catch (e) {
+      if (mounted) _hataGoster("Konum alınamadı.");
+    }
+  }
+
+  void _hataGoster(String mesaj) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mesaj), backgroundColor: Colors.red));
+  }
+
   void _filtrele() {
     String aramaMetni = _aramaController.text.toLowerCase();
 
     setState(() {
       goruntulenenSahalar = tumSahalar.where((saha) {
-        // 1. İsim veya İlçe araması
         bool isimUyumu = saha.isim.toLowerCase().contains(aramaMetni) || 
                          saha.ilce.toLowerCase().contains(aramaMetni);
-        
-        // 2. Özellik Filtresi (Seçili tüm özellikler sahada var mı?)
-        // Eğer hiç filtre seçili değilse (isEmpty), true döner.
         bool ozellikUyumu = _aktifFiltreler.isEmpty || 
                             _aktifFiltreler.every((ozellik) => saha.ozellikler.contains(ozellik));
-
         return isimUyumu && ozellikUyumu;
       }).toList();
 
-      // Eğer sonuç varsa ve sadece 1 tane kaldıysa haritayı oraya odakla
       if (goruntulenenSahalar.isNotEmpty && goruntulenenSahalar.length == 1) {
-        // Koordinatı bul (Simülasyon fonksiyonumuzdan)
-        // Not: Gerçekte saha modelinde lat/lng olmalı
         _seciliSaha = goruntulenenSahalar.first;
       }
     });
   }
 
-  // --- FİLTRE PENCERESİNİ AÇ ---
   void _filtrePenceresiniAc() {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) {
-        return StatefulBuilder( // BottomSheet içinde setState kullanmak için
+        return StatefulBuilder(
           builder: (context, setModalState) {
             return Padding(
               padding: const EdgeInsets.all(24.0),
@@ -86,18 +123,18 @@ class _HaritaEkraniState extends State<HaritaEkrani> {
                       return FilterChip(
                         label: Text(ozellik),
                         selected: secili,
-                        selectedColor: const Color(0xFFDCFCE7), // Açık yeşil
+                        selectedColor: const Color(0xFFDCFCE7),
                         checkmarkColor: const Color(0xFF15803D),
                         labelStyle: TextStyle(color: secili ? const Color(0xFF15803D) : Colors.black),
                         onSelected: (bool value) {
-                          setModalState(() { // Sadece modalı yenile
+                          setModalState(() {
                             if (value) {
                               _aktifFiltreler.add(ozellik);
                             } else {
                               _aktifFiltreler.remove(ozellik);
                             }
                           });
-                          _filtrele(); // Ana listeyi de yenile
+                          _filtrele();
                         },
                       );
                     }).toList(),
@@ -106,10 +143,7 @@ class _HaritaEkraniState extends State<HaritaEkrani> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF22C55E),
-                        foregroundColor: Colors.white
-                      ),
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF22C55E), foregroundColor: Colors.white),
                       onPressed: () => Navigator.pop(context),
                       child: const Text("Uygula"),
                     ),
@@ -123,7 +157,6 @@ class _HaritaEkraniState extends State<HaritaEkrani> {
     );
   }
 
-  // Sahalarımıza sahte koordinat atayalım (Önceki gibi)
   LatLng _koordinatUret(int index) {
     if (index == 0) return const LatLng(40.8050, 29.4350);
     if (index == 1) return const LatLng(40.7990, 29.4280);
@@ -133,17 +166,26 @@ class _HaritaEkraniState extends State<HaritaEkrani> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      resizeToAvoidBottomInset: false, // Klavye açılınca harita sıkışmasın
+      resizeToAvoidBottomInset: false,
+      
+      // --- YENİ: KONUM BUTONU (SAĞ ALT) ---
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 100), // Kartın altında kalmasın diye yukarı ittik
+        child: FloatingActionButton(
+          onPressed: _konumaGit,
+          backgroundColor: Colors.white,
+          child: const Icon(Icons.my_location, color: Color(0xFF22C55E)),
+        ),
+      ),
+      
       body: Stack(
         children: [
-          // --- 1. HARİTA ---
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
               initialCenter: _merkezKonum,
               initialZoom: 13.5,
               onTap: (_, __) {
-                // Boşluğa tıklayınca klavyeyi ve kartı kapat
                 FocusScope.of(context).unfocus();
                 setState(() => _seciliSaha = null);
               },
@@ -156,11 +198,8 @@ class _HaritaEkraniState extends State<HaritaEkrani> {
               MarkerLayer(
                 markers: List.generate(goruntulenenSahalar.length, (index) {
                   final saha = goruntulenenSahalar[index];
-                  // Not: Filtreleyince indexler kayabilir, bu basit örnek için
-                  // tüm listeyi (tumSahalar) baz alarak koordinat verelim ki yerleri değişmesin.
                   final orijinalIndex = tumSahalar.indexOf(saha);
                   final konum = _koordinatUret(orijinalIndex); 
-                  
                   final seciliMi = _seciliSaha == saha;
 
                   return Marker(
@@ -186,21 +225,15 @@ class _HaritaEkraniState extends State<HaritaEkrani> {
             ],
           ),
 
-          // --- 2. ARAMA VE FİLTRE KUTUSU ---
+          // Arama Kutusu
           Positioned(
-            top: 50,
-            left: 20,
-            right: 20,
+            top: 50, left: 20, right: 20,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(15),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 15)],
-              ),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 15)]),
               child: TextField(
                 controller: _aramaController,
-                onChanged: (_) => _filtrele(), // Her harfte filtrele
+                onChanged: (_) => _filtrele(),
                 decoration: InputDecoration(
                   hintText: "Haritada ara...",
                   hintStyle: const TextStyle(color: Colors.grey),
@@ -209,15 +242,8 @@ class _HaritaEkraniState extends State<HaritaEkrani> {
                   suffixIcon: IconButton(
                     icon: Container(
                       padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: _aktifFiltreler.isNotEmpty ? const Color(0xFFDCFCE7) : Colors.grey[100],
-                        shape: BoxShape.circle
-                      ),
-                      child: Icon(
-                        Icons.filter_list, 
-                        color: _aktifFiltreler.isNotEmpty ? const Color(0xFF15803D) : Colors.black, 
-                        size: 20
-                      ),
+                      decoration: BoxDecoration(color: _aktifFiltreler.isNotEmpty ? const Color(0xFFDCFCE7) : Colors.grey[100], shape: BoxShape.circle),
+                      child: Icon(Icons.filter_list, color: _aktifFiltreler.isNotEmpty ? const Color(0xFF15803D) : Colors.black, size: 20),
                     ),
                     onPressed: _filtrePenceresiniAc,
                   ),
@@ -226,27 +252,18 @@ class _HaritaEkraniState extends State<HaritaEkrani> {
             ),
           ),
 
-          // --- 3. BİLGİ KARTI ---
+          // Bilgi Kartı
           if (_seciliSaha != null)
             Positioned(
-              bottom: 30,
-              left: 20,
-              right: 20,
+              bottom: 30, left: 20, right: 20,
               child: GestureDetector(
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SahaDetayEkrani(saha: _seciliSaha!))),
                 child: Container(
                   padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 20)],
-                  ),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 20)]),
                   child: Row(
                     children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(15),
-                        child: Image.asset(_seciliSaha!.resimYolu, width: 80, height: 80, fit: BoxFit.cover),
-                      ),
+                      ClipRRect(borderRadius: BorderRadius.circular(15), child: Image.asset(_seciliSaha!.resimYolu, width: 80, height: 80, fit: BoxFit.cover)),
                       const SizedBox(width: 15),
                       Expanded(
                         child: Column(
@@ -261,10 +278,7 @@ class _HaritaEkraniState extends State<HaritaEkrani> {
                           ],
                         ),
                       ),
-                      const CircleAvatar(
-                        backgroundColor: Color(0xFF22C55E),
-                        child: Icon(Icons.arrow_forward, color: Colors.white),
-                      )
+                      const CircleAvatar(backgroundColor: Color(0xFF22C55E), child: Icon(Icons.arrow_forward, color: Colors.white))
                     ],
                   ),
                 ),

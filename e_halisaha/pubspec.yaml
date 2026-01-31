@@ -30,14 +30,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
   flutter_localizations:
     sdk: flutter
-
   flutter_map: ^6.1.0
   latlong2: ^0.9.0
   cupertino_icons: ^1.0.8
   image_picker: ^1.0.7
+  geolocator: ^10.1.0
 
 dev_dependencies:
   flutter_test:
