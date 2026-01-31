@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../modeller/saha_modeli.dart';
 import '../../modeller/oyuncu_modeli.dart'; // <--- YENİ MODEL
-import '../anasayfa/anasayfa_ekrani.dart';
 import '../../ekranlar/odeme/odeme_ekrani.dart';
 import 'oyuncu_secim_ekrani.dart'; // <--- SEÇİM EKRANI
 
