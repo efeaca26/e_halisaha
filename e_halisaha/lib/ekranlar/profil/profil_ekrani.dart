@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../cekirdek/servisler/kimlik_servisi.dart';
 import '../giris/giris_ekrani.dart';
-// SADECE YENİ DOSYAYI ÇAĞIRIYORUZ:
 import 'profil_alt_sayfalar_yeni.dart'; 
 
 class ProfilEkrani extends StatefulWidget {
