@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../../modeller/saha_modeli.dart';
-import '../../cekirdek/servisler/rezervasyon_servisi.dart';
+import '../../modeller/saha_modeli.dart'; // Model
 import '../anasayfa/anasayfa_ekrani.dart';
+import '../../cekirdek/servisler/rezervasyon_servisi.dart'; // <--- Hafızayı kontrol etmek için ekledik
 
 class SahaDetayEkrani extends StatefulWidget {
   final SahaModeli saha;
@@ -17,23 +17,18 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
   bool _yukleniyor = false;
   
   // --- TARİH VE SAAT YÖNETİMİ ---
-  DateTime _seciliTarih = DateTime.now(); // Başlangıçta bugün seçili
+  DateTime _seciliTarih = DateTime.now(); 
   int? _seciliSaatIndex;
   
   Timer? _zamanlayici;
   int _kalanSure = 300; 
 
-  // Abonelik Simülasyonu: 
-  // Çarşamba günleri 22:00-23:00 arası "Abone" olduğu için hep dolu olsun.
-  // Cumartesi günleri 19:00-20:00 arası "Abone".
-  
-  // Dinamik Saat Listesi (Seçilen güne göre değişir)
   List<Map<String, dynamic>> _guncelSaatler = [];
 
   @override
   void initState() {
     super.initState();
-    _saatleriYenile(); // Sayfa açılınca bugünün saatlerini yükle
+    _saatleriYenile(); 
   }
 
   @override
@@ -42,38 +37,59 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
     super.dispose();
   }
 
-  // --- MANTIK: GÜNE GÖRE SAATLERİ OLUŞTUR ---
+  // --- MANTIK: GÜNE GÖRE SAATLERİ OLUŞTUR VE KONTROL ET ---
   void _saatleriYenile() {
-    // Önce seçimi sıfırla
+    // Seçimi sıfırla
     _seciliSaatIndex = null;
     _zamanlayici?.cancel();
     
-    // Sabit saat listesi şablonu
     List<String> saatAraliklari = [
       "17:00", "18:00", "19:00", "20:00", "21:00", "22:00", "23:00"
     ];
 
     List<Map<String, dynamic>> yeniListe = [];
-
-    // Hangi gün seçili? (1: Pzt, ... 7: Paz)
     int gun = _seciliTarih.weekday; 
 
-    for (var saat in saatAraliklari) {
-      String durum = "bos"; // Varsayılan boş
+    // YENİSİ:
+    final kayitliRezervasyonlar = RezervasyonServisi.tumRezervasyonlar; 
 
-      // 1. ABONE KONTROLÜ (Senaryo Gereği)
-      if (gun == 3 && saat == "22:00") { 
-        durum = "dolu"; // Çarşamba 22:00 Abone var
+    for (var saat in saatAraliklari) {
+      String durum = "bos"; 
+
+      // 1. ÖNCE HAFIZAYI KONTROL ET (Gerçek Rezervasyon Var mı?)
+      bool rezerveEdilmis = kayitliRezervasyonlar.any((kayit) {
+        SahaModeli kayitliSaha = kayit['saha'];
+        DateTime kayitliTarih = kayit['tarih'];
+        String kayitliSaat = kayit['saat'];
+
+        // Saha aynı mı?
+        bool sahaAyni = kayitliSaha.isim == widget.saha.isim;
+        // Tarih aynı mı? (Yıl, Ay, Gün)
+        bool tarihAyni = kayitliTarih.year == _seciliTarih.year && 
+                         kayitliTarih.month == _seciliTarih.month && 
+                         kayitliTarih.day == _seciliTarih.day;
+        // Saat aynı mı?
+        bool saatAyni = kayitliSaat == saat;
+
+        return sahaAyni && tarihAyni && saatAyni;
+      });
+
+      if (rezerveEdilmis) {
+        durum = "dolu"; // Eğer listede varsa direkt kırmızı yap!
+      } 
+      // 2. ABONE KONTROLÜ (Senaryo)
+      else if (gun == 3 && saat == "22:00") { 
+        durum = "dolu"; 
       } 
       else if (gun == 6 && saat == "19:00") {
-        durum = "dolu"; // Cumartesi 19:00 Abone var
+        durum = "dolu";
       }
-      // 2. RASTGELE DOLULUK (Gerçekçilik için)
+      // 3. RASTGELE DOLULUK
       else if ((gun + saat.length) % 5 == 0) {
         durum = "dolu";
       }
       else if ((gun + saat.length) % 7 == 0) {
-        durum = "beklemede"; // Sarı renk
+        durum = "beklemede";
       }
 
       yeniListe.add({"saat": saat, "durum": durum});
@@ -84,10 +100,9 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
     });
   }
 
-  // --- SAYAÇ FONKSİYONLARI ---
   void _sayaciBaslat() {
     _zamanlayici?.cancel();
-    setState(() => _kalanSure = 300); // 5 dakika
+    setState(() => _kalanSure = 300);
 
     _zamanlayici = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
@@ -130,35 +145,29 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
     setState(() => _yukleniyor = true);
     _zamanlayici?.cancel();
 
-    // Simülasyon beklemesi
     await Future.delayed(const Duration(seconds: 1));
 
     if (!mounted) return;
 
-    // --- YENİ: REZERVASYONU KAYDET ---
     String secilenSaat = _guncelSaatler[_seciliSaatIndex!]['saat'];
+    
+    // Rezervasyonu Kaydet
     RezervasyonServisi.rezervasyonEkle(
       saha: widget.saha, 
       tarih: _seciliTarih, 
       saat: secilenSaat
     );
-    // ---------------------------------
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text("$secilenSaat için rezervasyon alındı! 🎉"),
+        content: Text("$secilenSaat için rezervasyon tamam! 🎉"),
         backgroundColor: Colors.green,
       ),
     );
 
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (context) => const AnasayfaEkrani()),
-      (route) => false,
-    );
+    Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const AnasayfaEkrani()), (route) => false);
   }
-  
-  // Tarihi Türkçe Gün Adına Çevir
+
   String _gunAdiGetir(DateTime tarih) {
     List<String> gunler = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
     return gunler[tarih.weekday - 1];
@@ -170,7 +179,6 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
       backgroundColor: const Color(0xFFF0FDF4),
       body: CustomScrollView(
         slivers: [
-          // --- ÜST RESİM ---
           SliverAppBar(
             expandedHeight: 200,
             pinned: true,
@@ -204,14 +212,14 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                   
                   const SizedBox(height: 24),
 
-                  // --- TARİH SEÇİMİ (HAFTALIK TAKVİM) ---
+                  // --- TARİH SEÇİMİ ---
                   const Text("Tarih Seçiniz", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   SizedBox(
                     height: 80,
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
-                      itemCount: 7, // Bir haftalık takvim
+                      itemCount: 7, 
                       itemBuilder: (context, index) {
                         DateTime tarih = DateTime.now().add(Duration(days: index));
                         bool secili = _seciliTarih.day == tarih.day;
@@ -220,7 +228,7 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                           onTap: () {
                             setState(() {
                               _seciliTarih = tarih;
-                              _saatleriYenile(); // Günü değiştirince saatleri güncelle
+                              _saatleriYenile(); 
                             });
                           },
                           child: Container(
@@ -254,7 +262,7 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                   
                   const SizedBox(height: 24),
                   
-                  // --- SAATLER GRID ---
+                  // --- SAATLER ---
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -308,7 +316,7 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                               }
                             });
                           } else if (durum == "dolu") {
-                             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Bu saat dolu! (Abone veya Rezervasyon)"), duration: Duration(milliseconds: 500)));
+                             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Bu saat dolu!"), duration: Duration(milliseconds: 500)));
                           } else if (durum == "beklemede") {
                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Bu saat şu an inceleniyor."), duration: Duration(milliseconds: 500)));
                           }
@@ -331,7 +339,6 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
 
                   const SizedBox(height: 24),
                   
-                  // Legend
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [

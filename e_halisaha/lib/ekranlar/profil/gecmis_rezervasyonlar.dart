@@ -7,7 +7,8 @@ class GecmisRezervasyonlarEkrani extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final liste = RezervasyonServisi.rezervasyonlar;
+    // --- DÜZELTME BURADA: Sadece giriş yapan kişinin rezervasyonlarını al ---
+    final liste = RezervasyonServisi.kullaniciRezervasyonlari;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0FDF4),
@@ -22,7 +23,6 @@ class GecmisRezervasyonlarEkrani extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // DÜZELTME 1: Olmayan ikon yerine bunu kullandık
                   Icon(Icons.event_busy, size: 80, color: Colors.grey[300]),
                   const SizedBox(height: 20),
                   const Text("Henüz rezervasyonunuz yok.", style: TextStyle(color: Colors.grey, fontSize: 16)),
@@ -109,7 +109,6 @@ class GecmisRezervasyonlarEkrani extends StatelessWidget {
                                     ],
                                   ),
                                   const SizedBox(height: 4),
-                                  // DÜZELTME 2: 'il' değişkeni modelde yoktu, sildik.
                                   Text("📍 ${saha.ilce}", style: const TextStyle(color: Colors.grey, fontSize: 12)),
                                 ],
                               ),
