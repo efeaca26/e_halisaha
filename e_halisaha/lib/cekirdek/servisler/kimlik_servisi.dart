@@ -4,7 +4,7 @@ class KimlikServisi {
       'isim': 'Sistem Yöneticisi',
       'email': 'admin@ehalisaha.com',
       'sifre': 'admin123',
-      'isletmeModu': true,
+      'isletmeModu': false,
       'rol': 'admin'
     },
     {
