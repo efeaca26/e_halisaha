@@ -93,6 +93,7 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
 
   @override
   Widget build(BuildContext context) {
+      print("Giriş Ekranı Çiziliyor..."); // <--- Bunu ekle ve konsolu izle
     return Scaffold(
       body: Container(
         width: double.infinity,

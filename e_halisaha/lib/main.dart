@@ -6,6 +6,7 @@ import 'ekranlar/giris/giris_ekrani.dart';
 ValueNotifier<ThemeMode> temaYoneticisi = ValueNotifier(ThemeMode.light);
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const EHalisahaUygulamasi());
 }
 
