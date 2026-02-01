@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../modeller/saha_modeli.dart';
 import '../../modeller/oyuncu_modeli.dart';
+import '../anasayfa/anasayfa_ekrani.dart';
 import '../../ekranlar/odeme/odeme_ekrani.dart';
 import 'oyuncu_secim_ekrani.dart';
 
@@ -14,14 +15,10 @@ class SahaDetayEkrani extends StatefulWidget {
 }
 
 class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
-  bool _yukleniyor = false;
   DateTime _seciliTarih = DateTime.now(); 
   int? _seciliSaatIndex;
   Timer? _zamanlayici;
-  int _kalanSure = 300; 
   List<Map<String, dynamic>> _guncelSaatler = [];
-
-  // --- YENİ: SEÇİLEN OYUNCULAR ---
   List<OyuncuModeli> _eklenenOyuncular = [];
 
   @override
@@ -36,22 +33,16 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
     super.dispose();
   }
 
-  // --- FİYAT HESAPLAMA ---
   double _toplamFiyatiHesapla() {
     double sahaUcreti = widget.saha.fiyat;
     double oyuncuUcretleri = 0;
-
-    // Eklenen her oyuncunun kendi ücretini topla
     for (var oyuncu in _eklenenOyuncular) {
       oyuncuUcretleri += oyuncu.ucret;
     }
-
     return sahaUcreti + oyuncuUcretleri;
   }
 
-  // --- OYUNCU SEÇİM EKRANINI AÇ ---
   void _oyuncuSecimEkraniniAc() async {
-    // Seçim ekranına git ve dönen sonucu bekle (await)
     final sonuc = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -59,7 +50,6 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
       ),
     );
 
-    // Eğer geri dönüldüğünde bir liste geldiyse güncelle
     if (sonuc != null && sonuc is List<OyuncuModeli>) {
       setState(() {
         _eklenenOyuncular = sonuc;
@@ -67,7 +57,6 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
     }
   }
 
-  // ... (Saat Yenileme vb. standart kodlar) ...
   void _saatleriYenile() {
     _guncelSaatler = [
       {"saat": "19:00", "durum": "bos"},
@@ -77,8 +66,6 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
     ];
     setState(() {});
   }
-  
-  void _sayaciBaslat() { /* Timer logic here */ }
 
   void _odemeEkraninaGit() {
     if (_seciliSaatIndex == null) {
@@ -104,75 +91,92 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
 
   @override
   Widget build(BuildContext context) {
+    // Tema Kontrolleri
+    bool isDark = Theme.of(context).brightness == Brightness.dark;
+    Color arkaplanRengi = Theme.of(context).scaffoldBackgroundColor;
+    Color kartRengi = isDark ? const Color(0xFF1E293B) : Colors.white;
+    Color yaziRengi = isDark ? Colors.white : Colors.black;
+    Color altYaziRengi = isDark ? Colors.grey[400]! : Colors.grey;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF0FDF4),
+      backgroundColor: arkaplanRengi,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
             expandedHeight: 200, pinned: true, backgroundColor: const Color(0xFF22C55E),
             flexibleSpace: FlexibleSpaceBar(background: Image.asset(widget.saha.resimYolu, fit: BoxFit.cover)),
             leading: Container(
-            margin: const EdgeInsets.all(8),
-            // Geri Tuşu Arkaplanı
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.5), // Yarı saydam siyah (Her resimde görünür)
-              shape: BoxShape.circle,
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white), // İkon beyaz
-              onPressed: () => Navigator.pop(context),
+              margin: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.5), 
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
+              ),
             ),
           ),
-        ),
 
           SliverToBoxAdapter(
             child: Container(
-              decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+              decoration: BoxDecoration(
+                color: kartRengi, 
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(30))
+              ),
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(widget.saha.isim, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                  Text("📍 ${widget.saha.tamKonum}", style: const TextStyle(color: Colors.grey)),
+                  Text(widget.saha.isim, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: yaziRengi)),
+                  Text("📍 ${widget.saha.tamKonum}", style: TextStyle(color: altYaziRengi)),
                   const SizedBox(height: 24),
 
-                  // --- SAAT SEÇİMİ (Basitleştirilmiş) ---
-                  const Text("Saat Seçimi", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  // --- SAAT SEÇİMİ ---
+                  Text("Saat Seçimi", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: yaziRengi)),
                   const SizedBox(height: 10),
                   Wrap(
                     spacing: 10,
                     children: List.generate(_guncelSaatler.length, (index) {
                       bool secili = _seciliSaatIndex == index;
+                      bool dolu = _guncelSaatler[index]['durum'] == 'dolu';
+                      
                       return ChoiceChip(
                         label: Text(_guncelSaatler[index]['saat']),
                         selected: secili,
-                        onSelected: (val) => setState(() => _seciliSaatIndex = val ? index : null),
+                        onSelected: dolu ? null : (val) => setState(() => _seciliSaatIndex = val ? index : null),
                         selectedColor: const Color(0xFF22C55E),
-                        labelStyle: TextStyle(color: secili ? Colors.white : Colors.black),
+                        backgroundColor: isDark ? const Color(0xFF334155) : Colors.grey[200],
+                        labelStyle: TextStyle(
+                          color: secili 
+                              ? Colors.white 
+                              : (dolu ? Colors.grey : yaziRengi)
+                        ),
+                        // Dolu ise devre dışı bırak
+                        disabledColor: isDark ? Colors.black26 : Colors.grey[300],
                       );
                     }),
                   ),
 
                   const SizedBox(height: 30),
-                  const Divider(),
+                  Divider(color: isDark ? Colors.grey[700] : Colors.grey[300]),
                   const SizedBox(height: 10),
 
-                  // --- KADRO TAMAMLAMA (TOPLULUK) ---
+                  // --- KADRO TAMAMLAMA ---
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Column(
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text("Eksik Oyuncu Tamamla", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                          Text("Topluluktan oyuncu davet et", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                          Text("Eksik Oyuncu Tamamla", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: yaziRengi)),
+                          Text("Topluluktan oyuncu davet et", style: TextStyle(color: altYaziRengi, fontSize: 12)),
                         ],
                       ),
-                      // EKLEME BUTONU
                       ElevatedButton.icon(
                         onPressed: _oyuncuSecimEkraniniAc,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.black,
+                          backgroundColor: isDark ? const Color(0xFF334155) : Colors.black,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
                         ),
@@ -189,8 +193,12 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       width: double.infinity,
-                      decoration: BoxDecoration(color: Colors.grey[50], borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade200)),
-                      child: const Center(child: Text("Henüz oyuncu eklenmedi.", style: TextStyle(color: Colors.grey))),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF0F172A) : Colors.grey[50], 
+                        borderRadius: BorderRadius.circular(12), 
+                        border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade200)
+                      ),
+                      child: Center(child: Text("Henüz oyuncu eklenmedi.", style: TextStyle(color: altYaziRengi))),
                     )
                   else
                     Column(
@@ -198,7 +206,11 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                         return Container(
                           margin: const EdgeInsets.only(bottom: 8),
                           padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.grey.shade300)),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF334155) : Colors.white, 
+                            borderRadius: BorderRadius.circular(12), 
+                            border: Border.all(color: isDark ? Colors.grey[700]! : Colors.grey.shade300)
+                          ),
                           child: Row(
                             children: [
                               CircleAvatar(backgroundImage: NetworkImage(oyuncu.resimUrl), radius: 20),
@@ -207,8 +219,8 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(oyuncu.isim, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                    Text(oyuncu.mevkii, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                    Text(oyuncu.isim, style: TextStyle(fontWeight: FontWeight.bold, color: yaziRengi)),
+                                    Text(oyuncu.mevkii, style: TextStyle(fontSize: 10, color: altYaziRengi)),
                                   ],
                                 ),
                               ),
@@ -238,20 +250,23 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
       // --- ALT BAR ---
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20)]),
+        decoration: BoxDecoration(
+          color: kartRengi, 
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20)]
+        ),
         child: Row(
           children: [
             Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("Toplam Tutar", style: TextStyle(color: Colors.grey)),
+                Text("Toplam Tutar", style: TextStyle(color: altYaziRengi)),
                 Text(
                   "${_toplamFiyatiHesapla().toStringAsFixed(0)}₺",
                   style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF22C55E)),
                 ),
                 if (_eklenenOyuncular.isNotEmpty)
-                  Text("(${_eklenenOyuncular.length} Kiralık Oyuncu)", style: const TextStyle(fontSize: 10, color: Colors.black54)),
+                  Text("(${_eklenenOyuncular.length} Kiralık Oyuncu)", style: TextStyle(fontSize: 10, color: yaziRengi)),
               ],
             ),
             const SizedBox(width: 20),
