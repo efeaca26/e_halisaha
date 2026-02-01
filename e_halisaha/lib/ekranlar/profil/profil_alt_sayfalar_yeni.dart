@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../main.dart'; // Tema yöneticisi için
+import '../../main.dart';
 import '../../cekirdek/servisler/rezervasyon_servisi.dart';
 import '../../modeller/saha_modeli.dart';
 import '../../cekirdek/servisler/odeme_servisi.dart';

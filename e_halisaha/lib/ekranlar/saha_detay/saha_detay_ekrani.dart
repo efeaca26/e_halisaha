@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../modeller/saha_modeli.dart';
 import '../../modeller/oyuncu_modeli.dart';
+import '../../cekirdek/servisler/kimlik_servisi.dart'; // Yetki kontrolü için
+import '../../cekirdek/servisler/rezervasyon_servisi.dart'; // Veritabanı için
 import '../anasayfa/anasayfa_ekrani.dart';
 import '../../ekranlar/odeme/odeme_ekrani.dart';
 import 'oyuncu_secim_ekrani.dart';
@@ -17,20 +19,70 @@ class SahaDetayEkrani extends StatefulWidget {
 class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
   DateTime _seciliTarih = DateTime.now(); 
   int? _seciliSaatIndex;
-  Timer? _zamanlayici;
-  List<Map<String, dynamic>> _guncelSaatler = [];
+  
+  // Saat Listesi (Sabit saatler, durumları servisten gelecek)
+  final List<String> _saatListesi = ["18:00", "19:00", "20:00", "21:00", "22:00", "23:00"];
+  
   List<OyuncuModeli> _eklenenOyuncular = [];
 
-  @override
-  void initState() {
-    super.initState();
-    _saatleriYenile(); 
+  // --- YETKİ KONTROLÜ (Bu saha benim mi?) ---
+  bool get yetkiliMi {
+    if (KimlikServisi.isAdmin) return true; // Admin her şeye yetkili
+    if (KimlikServisi.isIsletme && widget.saha.isletmeSahibiEmail == KimlikServisi.aktifKullanici?['email']) {
+      return true; // İşletme sahibi sadece kendi sahasına yetkili
+    }
+    return false;
   }
 
-  @override
-  void dispose() {
-    _zamanlayici?.cancel();
-    super.dispose();
+  // --- İŞLETME: MANUEL REZERVASYON EKLE ---
+  void _manuelEkleDialog(String saat) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text("$saat İçin Manuel Ekle"),
+        content: const Text("Bu saati telefonla arayan bir müşteri için kapatmak istiyor musunuz?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("İptal")),
+          ElevatedButton(
+            onPressed: () {
+              // Servise Kaydet
+              RezervasyonServisi.rezervasyonYap(widget.saha.id, _seciliTarih, saat, "Manuel Kayıt");
+              setState(() {}); // Ekranı Yenile
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Saat kapatıldı!"), backgroundColor: Colors.orange));
+            },
+            child: const Text("Ekle / Kapat"),
+          )
+        ],
+      ),
+    );
+  }
+
+  // --- İŞLETME: REZERVASYON İPTAL ET ---
+  void _iptalEtDialog(String saat) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text("$saat İptal Edilsin mi?"),
+        content: const Text("Bu rezervasyon silinecek ve saat tekrar boşa çıkacak."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Vazgeç")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              // Servisten Sil
+              RezervasyonServisi.rezervasyonIptal(widget.saha.id, _seciliTarih, saat);
+              setState(() {
+                _seciliSaatIndex = null; // Seçimi kaldır
+              }); 
+              Navigator.pop(ctx);
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Rezervasyon silindi!"), backgroundColor: Colors.red));
+            },
+            child: const Text("Sil"),
+          )
+        ],
+      ),
+    );
   }
 
   double _toplamFiyatiHesapla() {
@@ -45,37 +97,21 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
   void _oyuncuSecimEkraniniAc() async {
     final sonuc = await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => OyuncuSecimEkrani(suankiSecimler: _eklenenOyuncular),
-      ),
+      MaterialPageRoute(builder: (context) => OyuncuSecimEkrani(suankiSecimler: _eklenenOyuncular)),
     );
-
     if (sonuc != null && sonuc is List<OyuncuModeli>) {
-      setState(() {
-        _eklenenOyuncular = sonuc;
-      });
+      setState(() => _eklenenOyuncular = sonuc);
     }
-  }
-
-  void _saatleriYenile() {
-    _guncelSaatler = [
-      {"saat": "19:00", "durum": "bos"},
-      {"saat": "20:00", "durum": "bos"},
-      {"saat": "21:00", "durum": "dolu"},
-      {"saat": "22:00", "durum": "bos"},
-    ];
-    setState(() {});
   }
 
   void _odemeEkraninaGit() {
-    if (_seciliSaatIndex == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Lütfen bir saat seçiniz!"), backgroundColor: Colors.red));
-      return;
-    }
-
-    String secilenSaat = _guncelSaatler[_seciliSaatIndex!]['saat'];
-    double sonFiyat = _toplamFiyatiHesapla(); 
-
+    if (_seciliSaatIndex == null) return;
+    String secilenSaat = _saatListesi[_seciliSaatIndex!];
+    
+    // Ödeme ekranına gitmeden önce rezervasyonu servise "dolu" olarak işle (Geçici)
+    // Gerçekte ödeme başarılı olunca işlenir, ama burada akış kopmasın diye
+    // OdemeEkrani içinde zaten rezervasyonEkle çağrılıyor, burada sadece yönlendiriyoruz.
+    
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -83,7 +119,7 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
           saha: widget.saha,
           tarih: _seciliTarih,
           saat: secilenSaat,
-          sonTutar: sonFiyat, 
+          sonTutar: _toplamFiyatiHesapla(), 
         ),
       ),
     );
@@ -91,39 +127,29 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
 
   @override
   Widget build(BuildContext context) {
-    // Tema Kontrolleri
     bool isDark = Theme.of(context).brightness == Brightness.dark;
-    Color arkaplanRengi = Theme.of(context).scaffoldBackgroundColor;
     Color kartRengi = isDark ? const Color(0xFF1E293B) : Colors.white;
     Color yaziRengi = isDark ? Colors.white : Colors.black;
     Color altYaziRengi = isDark ? Colors.grey[400]! : Colors.grey;
 
     return Scaffold(
-      backgroundColor: arkaplanRengi,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: CustomScrollView(
         slivers: [
+          // RESİM ALANI
           SliverAppBar(
             expandedHeight: 200, pinned: true, backgroundColor: const Color(0xFF22C55E),
             flexibleSpace: FlexibleSpaceBar(background: Image.asset(widget.saha.resimYolu, fit: BoxFit.cover)),
             leading: Container(
               margin: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.5), 
-                shape: BoxShape.circle,
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-                onPressed: () => Navigator.pop(context),
-              ),
+              decoration: BoxDecoration(color: Colors.black.withOpacity(0.5), shape: BoxShape.circle),
+              child: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context)),
             ),
           ),
 
           SliverToBoxAdapter(
             child: Container(
-              decoration: BoxDecoration(
-                color: kartRengi, 
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(30))
-              ),
+              decoration: BoxDecoration(color: kartRengi, borderRadius: const BorderRadius.vertical(top: Radius.circular(30))),
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -132,37 +158,85 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                   Text("📍 ${widget.saha.tamKonum}", style: TextStyle(color: altYaziRengi)),
                   const SizedBox(height: 24),
 
-                  // --- SAAT SEÇİMİ ---
-                  Text("Saat Seçimi", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: yaziRengi)),
+                  // --- SAAT SEÇİMİ VE YÖNETİMİ ---
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text("Saat Seçimi", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: yaziRengi)),
+                      if (yetkiliMi) 
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(color: Colors.orange.withOpacity(0.2), borderRadius: BorderRadius.circular(5)),
+                          child: const Text("Yönetici Modu", style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold)),
+                        )
+                    ],
+                  ),
                   const SizedBox(height: 10),
+                  
                   Wrap(
                     spacing: 10,
-                    children: List.generate(_guncelSaatler.length, (index) {
+                    runSpacing: 10,
+                    children: List.generate(_saatListesi.length, (index) {
+                      String saat = _saatListesi[index];
+                      // Durumu Servisten Soruyoruz
+                      String durum = RezervasyonServisi.saatDurumuGetir(widget.saha.id, _seciliTarih, saat);
+                      bool dolu = durum == "dolu";
                       bool secili = _seciliSaatIndex == index;
-                      bool dolu = _guncelSaatler[index]['durum'] == 'dolu';
-                      
-                      return ChoiceChip(
-                        label: Text(_guncelSaatler[index]['saat']),
-                        selected: secili,
-                        onSelected: dolu ? null : (val) => setState(() => _seciliSaatIndex = val ? index : null),
-                        selectedColor: const Color(0xFF22C55E),
-                        backgroundColor: isDark ? const Color(0xFF334155) : Colors.grey[200],
-                        labelStyle: TextStyle(
-                          color: secili 
-                              ? Colors.white 
-                              : (dolu ? Colors.grey : yaziRengi)
+
+                      return GestureDetector(
+                        onTap: () {
+                          if (yetkiliMi) {
+                            // YETKİLİ: Doluysa Sil, Boşsa Ekle
+                            if (dolu) {
+                              _iptalEtDialog(saat);
+                            } else {
+                              _manuelEkleDialog(saat);
+                            }
+                          } else {
+                            // OYUNCU: Sadece boşsa seçebilir
+                            if (!dolu) {
+                              setState(() => _seciliSaatIndex = index);
+                            }
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            // Renk Mantığı:
+                            // Dolu ise -> Gri (Yetkili ise Kırmızı Çerçeve)
+                            // Seçili ise -> Yeşil
+                            // Boş ise -> Tema Rengi
+                            color: dolu 
+                                ? (yetkiliMi ? Colors.red.withOpacity(0.1) : Colors.grey[300]) 
+                                : (secili ? const Color(0xFF22C55E) : (isDark ? const Color(0xFF334155) : Colors.grey[100])),
+                            
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: dolu 
+                                  ? (yetkiliMi ? Colors.red : Colors.transparent) 
+                                  : (secili ? const Color(0xFF22C55E) : Colors.transparent),
+                              width: 2
+                            ),
+                          ),
+                          child: Text(
+                            saat,
+                            style: TextStyle(
+                              color: dolu 
+                                  ? (yetkiliMi ? Colors.red : Colors.grey) 
+                                  : (secili ? Colors.white : yaziRengi),
+                              fontWeight: FontWeight.bold
+                            ),
+                          ),
                         ),
-                        // Dolu ise devre dışı bırak
-                        disabledColor: isDark ? Colors.black26 : Colors.grey[300],
                       );
                     }),
                   ),
 
                   const SizedBox(height: 30),
                   Divider(color: isDark ? Colors.grey[700] : Colors.grey[300]),
+                  
+                  // ... (Oyuncu Ekleme Kısmı Aynı) ...
                   const SizedBox(height: 10),
-
-                  // --- KADRO TAMAMLAMA ---
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -175,11 +249,7 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                       ),
                       ElevatedButton.icon(
                         onPressed: _oyuncuSecimEkraniniAc,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isDark ? const Color(0xFF334155) : Colors.black,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
-                        ),
+                        style: ElevatedButton.styleFrom(backgroundColor: isDark ? const Color(0xFF334155) : Colors.black, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
                         icon: const Icon(Icons.group_add, color: Colors.white, size: 18),
                         label: const Text("Oyuncu Bul", style: TextStyle(color: Colors.white)),
                       )
@@ -187,58 +257,25 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                   ),
                   
                   const SizedBox(height: 15),
-
-                  // --- SEÇİLEN OYUNCULAR LİSTESİ ---
-                  if (_eklenenOyuncular.isEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF0F172A) : Colors.grey[50], 
-                        borderRadius: BorderRadius.circular(12), 
-                        border: Border.all(color: isDark ? Colors.grey[800]! : Colors.grey.shade200)
-                      ),
-                      child: Center(child: Text("Henüz oyuncu eklenmedi.", style: TextStyle(color: altYaziRengi))),
-                    )
-                  else
+                  if (_eklenenOyuncular.isNotEmpty)
                     Column(
                       children: _eklenenOyuncular.map((oyuncu) {
                         return Container(
                           margin: const EdgeInsets.only(bottom: 8),
                           padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF334155) : Colors.white, 
-                            borderRadius: BorderRadius.circular(12), 
-                            border: Border.all(color: isDark ? Colors.grey[700]! : Colors.grey.shade300)
-                          ),
+                          decoration: BoxDecoration(color: isDark ? const Color(0xFF334155) : Colors.white, borderRadius: BorderRadius.circular(12)),
                           child: Row(
                             children: [
                               CircleAvatar(backgroundImage: NetworkImage(oyuncu.resimUrl), radius: 20),
                               const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(oyuncu.isim, style: TextStyle(fontWeight: FontWeight.bold, color: yaziRengi)),
-                                    Text(oyuncu.mevkii, style: TextStyle(fontSize: 10, color: altYaziRengi)),
-                                  ],
-                                ),
-                              ),
+                              Expanded(child: Text(oyuncu.isim, style: TextStyle(fontWeight: FontWeight.bold, color: yaziRengi))),
                               Text("+${oyuncu.ucret.toStringAsFixed(0)}₺", style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF22C55E))),
-                              IconButton(
-                                icon: const Icon(Icons.close, color: Colors.red, size: 20),
-                                onPressed: () {
-                                  setState(() {
-                                    _eklenenOyuncular.remove(oyuncu);
-                                  });
-                                },
-                              )
+                              IconButton(icon: const Icon(Icons.close, color: Colors.red, size: 20), onPressed: () => setState(() => _eklenenOyuncular.remove(oyuncu)))
                             ],
                           ),
                         );
                       }).toList(),
                     ),
-
                   const SizedBox(height: 80),
                 ],
               ),
@@ -247,13 +284,9 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
         ],
       ),
 
-      // --- ALT BAR ---
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: kartRengi, 
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20)]
-        ),
+        decoration: BoxDecoration(color: kartRengi, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20)]),
         child: Row(
           children: [
             Column(
@@ -261,12 +294,7 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text("Toplam Tutar", style: TextStyle(color: altYaziRengi)),
-                Text(
-                  "${_toplamFiyatiHesapla().toStringAsFixed(0)}₺",
-                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF22C55E)),
-                ),
-                if (_eklenenOyuncular.isNotEmpty)
-                  Text("(${_eklenenOyuncular.length} Kiralık Oyuncu)", style: TextStyle(fontSize: 10, color: yaziRengi)),
+                Text("${_toplamFiyatiHesapla().toStringAsFixed(0)}₺", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF22C55E))),
               ],
             ),
             const SizedBox(width: 20),
