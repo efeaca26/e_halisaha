@@ -2,8 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../modeller/saha_modeli.dart';
 import '../../modeller/oyuncu_modeli.dart';
-import '../../cekirdek/servisler/kimlik_servisi.dart'; // Yetki kontrolü için
-import '../../cekirdek/servisler/rezervasyon_servisi.dart'; // Veritabanı için
+import '../../cekirdek/servisler/kimlik_servisi.dart';
+import '../../cekirdek/servisler/rezervasyon_servisi.dart';
 import '../anasayfa/anasayfa_ekrani.dart';
 import '../../ekranlar/odeme/odeme_ekrani.dart';
 import 'oyuncu_secim_ekrani.dart';
@@ -20,45 +20,66 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
   DateTime _seciliTarih = DateTime.now(); 
   int? _seciliSaatIndex;
   
-  // Saat Listesi (Sabit saatler, durumları servisten gelecek)
   final List<String> _saatListesi = ["18:00", "19:00", "20:00", "21:00", "22:00", "23:00"];
-  
   List<OyuncuModeli> _eklenenOyuncular = [];
 
-  // --- YETKİ KONTROLÜ (Bu saha benim mi?) ---
   bool get yetkiliMi {
-    if (KimlikServisi.isAdmin) return true; // Admin her şeye yetkili
+    if (KimlikServisi.isAdmin) return true;
     if (KimlikServisi.isIsletme && widget.saha.isletmeSahibiEmail == KimlikServisi.aktifKullanici?['email']) {
-      return true; // İşletme sahibi sadece kendi sahasına yetkili
+      return true;
     }
     return false;
   }
 
-  // --- İŞLETME: MANUEL REZERVASYON EKLE ---
+  // --- GÜNCELLENEN MANUEL REZERVASYON DİYALOĞU ---
   void _manuelEkleDialog(String saat) {
+    TextEditingController notController = TextEditingController();
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text("$saat İçin Manuel Ekle"),
-        content: const Text("Bu saati telefonla arayan bir müşteri için kapatmak istiyor musunuz?"),
+        title: Text("$saat Rezervasyonu"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("Bu saati manuel olarak kapatıyorsunuz."),
+            const SizedBox(height: 15),
+            TextField(
+              controller: notController,
+              decoration: const InputDecoration(
+                labelText: "Müşteri Adı / Not (Opsiyonel)",
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.note_alt_outlined),
+              ),
+            ),
+          ],
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("İptal")),
+          
+          // --- BURASI GÜNCELLENDİ: "Rezervle" Butonu ---
           ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF22C55E), // Yeşil Renk
+              foregroundColor: Colors.white,
+            ),
             onPressed: () {
-              // Servise Kaydet
-              RezervasyonServisi.rezervasyonYap(widget.saha.id, _seciliTarih, saat, "Manuel Kayıt");
+              // Servise Kaydet (Para almadan direkt kaydet)
+              String not = notController.text.isEmpty ? "Manuel Kayıt" : notController.text;
+              RezervasyonServisi.rezervasyonYap(widget.saha.id, _seciliTarih, saat, not);
+              
               setState(() {}); // Ekranı Yenile
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Saat kapatıldı!"), backgroundColor: Colors.orange));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Saha Başarıyla Rezerve Edildi! ✅"), backgroundColor: Colors.green));
             },
-            child: const Text("Ekle / Kapat"),
+            child: const Text("Rezervle"), // Buton metni değişti
           )
         ],
       ),
     );
   }
 
-  // --- İŞLETME: REZERVASYON İPTAL ET ---
   void _iptalEtDialog(String saat) {
     showDialog(
       context: context,
@@ -70,15 +91,14 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
-              // Servisten Sil
               RezervasyonServisi.rezervasyonIptal(widget.saha.id, _seciliTarih, saat);
               setState(() {
-                _seciliSaatIndex = null; // Seçimi kaldır
+                _seciliSaatIndex = null;
               }); 
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Rezervasyon silindi!"), backgroundColor: Colors.red));
             },
-            child: const Text("Sil"),
+            child: const Text("Sil", style: TextStyle(color: Colors.white)),
           )
         ],
       ),
@@ -108,10 +128,6 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
     if (_seciliSaatIndex == null) return;
     String secilenSaat = _saatListesi[_seciliSaatIndex!];
     
-    // Ödeme ekranına gitmeden önce rezervasyonu servise "dolu" olarak işle (Geçici)
-    // Gerçekte ödeme başarılı olunca işlenir, ama burada akış kopmasın diye
-    // OdemeEkrani içinde zaten rezervasyonEkle çağrılıyor, burada sadece yönlendiriyoruz.
-    
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -136,7 +152,6 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: CustomScrollView(
         slivers: [
-          // RESİM ALANI
           SliverAppBar(
             expandedHeight: 200, pinned: true, backgroundColor: const Color(0xFF22C55E),
             flexibleSpace: FlexibleSpaceBar(background: Image.asset(widget.saha.resimYolu, fit: BoxFit.cover)),
@@ -158,7 +173,6 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                   Text("📍 ${widget.saha.tamKonum}", style: TextStyle(color: altYaziRengi)),
                   const SizedBox(height: 24),
 
-                  // --- SAAT SEÇİMİ VE YÖNETİMİ ---
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -178,15 +192,14 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                     runSpacing: 10,
                     children: List.generate(_saatListesi.length, (index) {
                       String saat = _saatListesi[index];
-                      // Durumu Servisten Soruyoruz
                       String durum = RezervasyonServisi.saatDurumuGetir(widget.saha.id, _seciliTarih, saat);
-                      bool dolu = durum == "dolu";
+                      bool dolu = durum == "dolu" || durum != "bos"; // "bos" değilse doludur
                       bool secili = _seciliSaatIndex == index;
 
                       return GestureDetector(
                         onTap: () {
                           if (yetkiliMi) {
-                            // YETKİLİ: Doluysa Sil, Boşsa Ekle
+                            // YETKİLİ: Doluysa Sil, Boşsa Manuel Ekle
                             if (dolu) {
                               _iptalEtDialog(saat);
                             } else {
@@ -202,10 +215,6 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                           decoration: BoxDecoration(
-                            // Renk Mantığı:
-                            // Dolu ise -> Gri (Yetkili ise Kırmızı Çerçeve)
-                            // Seçili ise -> Yeşil
-                            // Boş ise -> Tema Rengi
                             color: dolu 
                                 ? (yetkiliMi ? Colors.red.withOpacity(0.1) : Colors.grey[300]) 
                                 : (secili ? const Color(0xFF22C55E) : (isDark ? const Color(0xFF334155) : Colors.grey[100])),
@@ -235,7 +244,6 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                   const SizedBox(height: 30),
                   Divider(color: isDark ? Colors.grey[700] : Colors.grey[300]),
                   
-                  // ... (Oyuncu Ekleme Kısmı Aynı) ...
                   const SizedBox(height: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -306,6 +314,8 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                     backgroundColor: _seciliSaatIndex != null ? const Color(0xFF22C55E) : Colors.grey,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
+                  // Eğer işletme sahibi ise ve saat seçtiyse (bu senaryo yetkili modunda olmaz ama güvenlik için)
+                  // Normal kullanıcılar için ödemeye gider.
                   onPressed: _seciliSaatIndex != null ? _odemeEkraninaGit : null,
                   child: const Text("Devam Et", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
                 ),
