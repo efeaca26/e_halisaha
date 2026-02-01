@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'dart:math'; // Animasyon için (pi sayısı)
+import 'dart:math';
+import 'dart:async'; // ZAMANLAYICI İÇİN
 import '../../modeller/saha_modeli.dart';
-import '../../cekirdek/servisler/rezervasyon_servisi.dart'; // Rezervasyon servisi
-import '../../cekirdek/servisler/odeme_servisi.dart'; // Kart servisi
+import '../../cekirdek/servisler/rezervasyon_servisi.dart';
+import '../../cekirdek/servisler/odeme_servisi.dart';
 import '../anasayfa/anasayfa_ekrani.dart';
 
 class OdemeEkrani extends StatefulWidget {
@@ -26,10 +27,14 @@ class OdemeEkrani extends StatefulWidget {
 
 class _OdemeEkraniState extends State<OdemeEkrani> {
   bool _yukleniyor = false;
-  int _secilenYontem = 0; // 0: Tamamı, 1: Kapora
-  bool _arkaYuzMu = false; // Kart dönme durumu
+  int _secilenYontem = 0;
+  bool _arkaYuzMu = false;
 
-  // Form Kontrolcüleri
+  // --- ZAMANLAYICI ---
+  Timer? _zamanlayici;
+  int _kalanSaniye = 300; // 5 Dakika
+  // ------------------
+
   final TextEditingController _kartNoController = TextEditingController();
   final TextEditingController _isimController = TextEditingController();
   final TextEditingController _sktController = TextEditingController();
@@ -40,7 +45,8 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
   @override
   void initState() {
     super.initState();
-    // CVV alanına tıklanınca kartı arkaya çevir
+    _sayaciBaslat(); // Sayaç başlasın
+    
     _cvvFocus.addListener(() {
       setState(() {
         _arkaYuzMu = _cvvFocus.hasFocus;
@@ -50,12 +56,43 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
 
   @override
   void dispose() {
+    _zamanlayici?.cancel(); // Sayfadan çıkınca sayacı durdur
     _cvvFocus.dispose();
     super.dispose();
   }
 
+  // --- ZAMANLAYICI MANTIĞI ---
+  void _sayaciBaslat() {
+    _zamanlayici = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_kalanSaniye > 0) {
+        setState(() {
+          _kalanSaniye--;
+        });
+      } else {
+        // SÜRE BİTTİ
+        timer.cancel();
+        if (mounted) {
+          Navigator.pop(context); // Önceki sayfaya at
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("⚠️ Ödeme süreniz doldu! Lütfen tekrar deneyin."), 
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 3),
+            )
+          );
+        }
+      }
+    });
+  }
+
+  String get _formatliSure {
+    int dakika = _kalanSaniye ~/ 60;
+    int saniye = _kalanSaniye % 60;
+    return "${dakika.toString().padLeft(2, '0')}:${saniye.toString().padLeft(2, '0')}";
+  }
+  // ----------------------------
+
   void _odemeyiTamamla() async {
-    // 1. Basit Doğrulama
     if (_kartNoController.text.replaceAll(' ', '').length < 16 || _cvvController.text.length < 3) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Lütfen kart bilgilerini eksiksiz girin."), backgroundColor: Colors.red)
@@ -63,24 +100,21 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
       return;
     }
 
+    _zamanlayici?.cancel(); // Ödeme başladıysa sayacı durdur
+
     setState(() => _yukleniyor = true);
 
-    // 2. Banka simülasyonu (2 saniye bekle)
     await Future.delayed(const Duration(seconds: 2));
     
     if (!mounted) return;
 
-    // --- 3. REZERVASYONU KAYDET (DÜZELTİLEN KISIM) ---
-    // Artık rezervasyonYap fonksiyonunu kullanıyoruz ve ID gönderiyoruz
     RezervasyonServisi.rezervasyonYap(
       widget.saha.id, 
       widget.tarih, 
       widget.saat, 
-      "Ödeme Yapıldı - Uygulama" // Not olarak ekliyoruz
+      "Ödeme Yapıldı - Uygulama"
     );
-    // -------------------------------------------------
 
-    // 4. KARTI CÜZDANA KAYDET
     if (_kartNoController.text.isNotEmpty) {
       OdemeServisi.kartEkle(
         _kartNoController.text, 
@@ -88,7 +122,6 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
       );
     }
 
-    // 5. Başarı Mesajı ve Yönlendirme
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Ödeme Başarılı! Rezervasyon Oluşturuldu 🎉"), backgroundColor: Colors.green)
     );
@@ -102,16 +135,39 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
 
   @override
   Widget build(BuildContext context) {
-    double odenecekTutar = _secilenYontem == 0 ? widget.sonTutar : (widget.sonTutar * 0.30); // Kapora mantığı burada basitçe tutarı böler, gerçekte kapora tutarı modelden gelmeli ama şimdilik oranla yapıyoruz.
+    double odenecekTutar = _secilenYontem == 0 ? widget.sonTutar : (widget.sonTutar * 0.30);
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(title: const Text("Güvenli Ödeme")),
+      appBar: AppBar(
+        title: const Text("Güvenli Ödeme"),
+        // --- SAYAÇ GÖSTERGESİ ---
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: _kalanSaniye < 60 ? Colors.red : Colors.grey[800], // Son 1 dk kırmızı
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.timer, color: Colors.white, size: 16),
+                const SizedBox(width: 6),
+                Text(
+                  _formatliSure,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+              ],
+            ),
+          ),
+        ],
+        // ------------------------
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            // --- KART ANİMASYONU ---
             TweenAnimationBuilder(
               tween: Tween<double>(begin: 0, end: _arkaYuzMu ? 1 : 0),
               duration: const Duration(milliseconds: 600),
@@ -137,7 +193,6 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
             
             const SizedBox(height: 30),
 
-            // ÖDEME YÖNTEMİ SEÇİMİ
             Row(children: [
               _odemeYontemiSec(0, "Tamamını Öde", Icons.credit_card),
               const SizedBox(width: 15),
@@ -146,7 +201,6 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
 
             const SizedBox(height: 25),
 
-            // --- INPUT ALANLARI ---
             _inputAlani(_isimController, "Kart Üzerindeki İsim", Icons.person, limit: 26),
             const SizedBox(height: 15),
             
@@ -170,7 +224,6 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
 
             const SizedBox(height: 30),
 
-            // ÖDE BUTONU
             SizedBox(
               width: double.infinity, height: 60,
               child: ElevatedButton(
@@ -193,7 +246,6 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
     );
   }
 
-  // --- KART ÖN YÜZ TASARIMI ---
   Widget _kartOnYuz() {
     return Container(
       height: 220, width: double.infinity,
@@ -256,7 +308,6 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
     );
   }
 
-  // --- KART ARKA YÜZ TASARIMI ---
   Widget _kartArkaYuz() {
     return Container(
       height: 220, width: double.infinity,
@@ -268,13 +319,13 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
       child: Column(
         children: [
           const SizedBox(height: 30),
-          Container(height: 50, color: Colors.black), // Manyetik Şerit
+          Container(height: 50, color: Colors.black), 
           const SizedBox(height: 20),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
               children: [
-                Expanded(child: Container(height: 40, color: Colors.grey[300])), // İmza bandı
+                Expanded(child: Container(height: 40, color: Colors.grey[300])), 
                 Container(
                   width: 60, height: 40, 
                   alignment: Alignment.center, 
@@ -300,7 +351,6 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
     );
   }
 
-  // --- YARDIMCI WIDGETLAR ---
   Widget _odemeYontemiSec(int index, String text, IconData icon) {
     bool selected = _secilenYontem == index;
     return Expanded(
@@ -355,7 +405,6 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
   }
 }
 
-// --- FORMATLAYICILAR ---
 class _KartFormatlayici extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {

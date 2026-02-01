@@ -1,4 +1,3 @@
-import 'dart:async'; // ZAMANLAYICI İÇİN GEREKLİ KÜTÜPHANE
 import 'package:flutter/material.dart';
 import '../../modeller/saha_modeli.dart';
 import '../../modeller/oyuncu_modeli.dart';
@@ -20,11 +19,6 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
   DateTime _seciliTarih = DateTime.now(); 
   int? _seciliSaatIndex;
   
-  // --- ZAMANLAYICI DEĞİŞKENLERİ ---
-  Timer? _otomatikCikisZamanlayici;
-  int _kalanSaniye = 300; // 5 Dakika (300 Saniye)
-  // --------------------------------
-
   final List<String> _saatListesi = ["18:00", "19:00", "20:00", "21:00", "22:00", "23:00"];
   List<OyuncuModeli> _eklenenOyuncular = [];
 
@@ -36,54 +30,9 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
     return false;
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _sayaciBaslat(); // Sayfa açılınca sayacı başlat
-  }
-
-  @override
-  void dispose() {
-    _otomatikCikisZamanlayici?.cancel(); // Sayfadan çıkarsa sayacı durdur (Hata vermemesi için)
-    super.dispose();
-  }
-
-  // --- ZAMANLAYICI FONKSİYONU ---
-  void _sayaciBaslat() {
-    _otomatikCikisZamanlayici = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_kalanSaniye > 0) {
-        setState(() {
-          _kalanSaniye--;
-        });
-      } else {
-        // SÜRE BİTTİ!
-        timer.cancel();
-        if (mounted) {
-          Navigator.pop(context); // Önceki sayfaya at
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("⚠️ İşlem süreniz doldu! Ana sayfaya yönlendirildiniz."), 
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 3),
-            )
-          );
-        }
-      }
-    });
-  }
-
-  // Saniyeyi Dakika:Saniye formatına çeviren yardımcı
-  String get _formatliSure {
-    int dakika = _kalanSaniye ~/ 60;
-    int saniye = _kalanSaniye % 60;
-    return "${dakika.toString().padLeft(2, '0')}:${saniye.toString().padLeft(2, '0')}";
-  }
-  // ------------------------------
-
   void _manuelEkleDialog(String saat) {
     TextEditingController notController = TextEditingController();
-    _otomatikCikisZamanlayici?.cancel(); // Diyalog açılınca süreyi durdurmayalım, devam etsin (veya istersen durdurabilirsin)
-    
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -96,20 +45,27 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
             const SizedBox(height: 15),
             TextField(
               controller: notController,
-              decoration: const InputDecoration(labelText: "Müşteri Adı / Not", border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: "Müşteri Adı / Not (Opsiyonel)",
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.note_alt_outlined),
+              ),
             ),
           ],
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("İptal")),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF22C55E), foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF22C55E),
+              foregroundColor: Colors.white,
+            ),
             onPressed: () {
               String not = notController.text.isEmpty ? "Manuel Kayıt" : notController.text;
               RezervasyonServisi.rezervasyonYap(widget.saha.id, _seciliTarih, saat, not);
               setState(() {});
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Saha Rezerve Edildi! ✅"), backgroundColor: Colors.green));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Saha Başarıyla Rezerve Edildi! ✅"), backgroundColor: Colors.green));
             },
             child: const Text("Rezervle"),
           )
@@ -123,16 +79,18 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text("$saat İptal Edilsin mi?"),
-        content: const Text("Bu rezervasyon silinecek."),
+        content: const Text("Bu rezervasyon silinecek ve saat tekrar boşa çıkacak."),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Vazgeç")),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
               RezervasyonServisi.rezervasyonIptal(widget.saha.id, _seciliTarih, saat);
-              setState(() => _seciliSaatIndex = null); 
+              setState(() {
+                _seciliSaatIndex = null;
+              }); 
               Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Silindi!"), backgroundColor: Colors.red));
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Rezervasyon silindi!"), backgroundColor: Colors.red));
             },
             child: const Text("Sil", style: TextStyle(color: Colors.white)),
           )
@@ -151,15 +109,18 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
   }
 
   void _oyuncuSecimEkraniniAc() async {
-    final sonuc = await Navigator.push(context, MaterialPageRoute(builder: (context) => OyuncuSecimEkrani(suankiSecimler: _eklenenOyuncular)));
-    if (sonuc != null && sonuc is List<OyuncuModeli>) setState(() => _eklenenOyuncular = sonuc);
+    final sonuc = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => OyuncuSecimEkrani(suankiSecimler: _eklenenOyuncular)),
+    );
+    if (sonuc != null && sonuc is List<OyuncuModeli>) {
+      setState(() => _eklenenOyuncular = sonuc);
+    }
   }
 
   void _odemeEkraninaGit() {
     if (_seciliSaatIndex == null) return;
     String secilenSaat = _saatListesi[_seciliSaatIndex!];
-    // Ödeme ekranına giderken sayacı durdurmak istersen buraya _otomatikCikisZamanlayici?.cancel() ekleyebilirsin.
-    // Ama genelde ödeme ekranında da süre devam etsin istenir.
     
     Navigator.push(
       context,
@@ -193,30 +154,6 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
               decoration: BoxDecoration(color: Colors.black.withOpacity(0.5), shape: BoxShape.circle),
               child: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context)),
             ),
-            
-            // --- ZAMANLAYICI GÖSTERGESİ (SAĞ ÜST) ---
-            actions: [
-              Container(
-                margin: const EdgeInsets.only(right: 16),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _kalanSaniye < 60 ? Colors.red : Colors.black.withOpacity(0.6), // Son 1 dk kırmızı
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.white, width: 1.5)
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.timer, color: Colors.white, size: 16),
-                    const SizedBox(width: 6),
-                    Text(
-                      _formatliSure,
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            // ----------------------------------------
           ),
 
           SliverToBoxAdapter(
@@ -245,20 +182,26 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                   const SizedBox(height: 10),
                   
                   Wrap(
-                    spacing: 10, runSpacing: 10,
+                    spacing: 10,
+                    runSpacing: 10,
                     children: List.generate(_saatListesi.length, (index) {
                       String saat = _saatListesi[index];
                       String durum = RezervasyonServisi.saatDurumuGetir(widget.saha.id, _seciliTarih, saat);
-                      bool dolu = durum != "bos"; 
+                      bool dolu = durum != "bos";
                       bool secili = _seciliSaatIndex == index;
 
                       return GestureDetector(
                         onTap: () {
                           if (yetkiliMi) {
-                            if (dolu) _iptalEtDialog(saat);
-                            else _manuelEkleDialog(saat);
+                            if (dolu) {
+                              _iptalEtDialog(saat);
+                            } else {
+                              _manuelEkleDialog(saat);
+                            }
                           } else {
-                            if (!dolu) setState(() => _seciliSaatIndex = index);
+                            if (!dolu) {
+                              setState(() => _seciliSaatIndex = index);
+                            }
                           }
                         },
                         child: Container(
@@ -267,6 +210,7 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                             color: dolu 
                                 ? (yetkiliMi ? Colors.red.withOpacity(0.1) : Colors.grey[300]) 
                                 : (secili ? const Color(0xFF22C55E) : (isDark ? const Color(0xFF334155) : Colors.grey[100])),
+                            
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
                               color: dolu 
