@@ -4,7 +4,7 @@ class KimlikServisi {
       'isim': 'Sistem Yöneticisi',
       'email': 'admin@ehalisaha.com',
       'sifre': 'admin123',
-      'isletmeModu': false,
+      'isletmeModu': true,
       'rol': 'admin'
     },
     {
@@ -40,8 +40,7 @@ class KimlikServisi {
     }
   }
 
-  // --- GÜNCELLENEN GİRİŞ FONKSİYONU ---
-  // Artık 'isletmeGirisiMi' diye bir parametre alıyor
+  // --- GÜNCELLENEN GİRİŞ MANTIĞI ---
   static Future<bool> girisYap(String email, String sifre, bool isletmeGirisiMi) async {
     await Future.delayed(const Duration(seconds: 1));
     
@@ -50,28 +49,28 @@ class KimlikServisi {
       bool sifreDogru = kullanici['sifre'] == sifre;
 
       if (emailDogru && sifreDogru) {
-        // KULLANICI BULUNDU, ŞİMDİ ROL KONTROLÜ YAPALIM
         String rol = kullanici['rol'];
 
-        // 1. Durum: İşletme Kapısından Girmeye Çalışıyor
+        // 1. Durum: İşletme Sekmesinden Girmeye Çalışıyor
         if (isletmeGirisiMi) {
-          // Sadece 'admin' ve 'isletme' girebilir
-          if (rol == 'admin' || rol == 'isletme') {
+          // BURASI DEĞİŞTİ: Sadece 'isletme' rolü buradan girebilir.
+          // Admin artık buradan GİREMEZ.
+          if (rol == 'isletme') {
             _aktifKullanici = kullanici;
             return true;
           } else {
-            print("HATA: Oyuncu hesabı işletme panelinden giremez!");
+            print("HATA: Bu hesaba İşletme panelinden girilemez!");
             return false;
           }
         } 
-        // 2. Durum: Oyuncu Kapısından Girmeye Çalışıyor
+        // 2. Durum: Normal (Oyuncu) Sekmesinden Girmeye Çalışıyor
         else {
-          // Sadece 'oyuncu' girebilir (Adminler oyuncu tarafından giremez diyelim veya girebilsin istersen burayı açabiliriz)
-          if (rol == 'oyuncu') {
+          // BURASI DEĞİŞTİ: 'oyuncu' VEYA 'admin' buradan girebilir.
+          if (rol == 'oyuncu' || rol == 'admin') {
             _aktifKullanici = kullanici;
             return true;
           } else {
-            print("HATA: İşletme hesabı oyuncu panelinden giremez!");
+            print("HATA: İşletme hesabı normal girişten giremez!");
             return false;
           }
         }
