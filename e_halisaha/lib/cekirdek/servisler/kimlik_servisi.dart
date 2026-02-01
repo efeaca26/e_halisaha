@@ -9,7 +9,7 @@ class KimlikServisi {
     },
     {
       'isim': 'Efe Acar',
-      'email': 'efe.acar@ademceylantk.com.tr',
+      'email': 'acar@gmail.com',
       'sifre': 'acftk123',
       'isletmeModu': false,
       'rol': 'oyuncu'
