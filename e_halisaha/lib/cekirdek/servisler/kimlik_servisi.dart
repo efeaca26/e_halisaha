@@ -26,12 +26,8 @@ class KimlikServisi {
   static Map<String, dynamic>? _aktifKullanici;
   static Map<String, dynamic>? get aktifKullanici => _aktifKullanici;
 
-  // --- EKSİK OLAN KISIMLAR EKLENDİ ---
-  
-  // Tüm kullanıcıları dışarıya aç
   static List<Map<String, dynamic>> get tumKullanicilar => _kullanicilar;
 
-  // Rol Değiştirme Fonksiyonu
   static void rolDegistir(String email, String yeniRol) {
     for (var u in _kullanicilar) {
       if (u['email'] == email) {
@@ -39,19 +35,46 @@ class KimlikServisi {
         break;
       }
     }
-    // Eğer kendi rolümüzü değiştirdiysek oturumu güncelle
     if (_aktifKullanici != null && _aktifKullanici!['email'] == email) {
       _aktifKullanici!['rol'] = yeniRol;
     }
   }
-  // -----------------------------------
 
-  static Future<bool> girisYap(String email, String sifre) async {
+  // --- GÜNCELLENEN GİRİŞ FONKSİYONU ---
+  // Artık 'isletmeGirisiMi' diye bir parametre alıyor
+  static Future<bool> girisYap(String email, String sifre, bool isletmeGirisiMi) async {
     await Future.delayed(const Duration(seconds: 1));
+    
     for (var kullanici in _kullanicilar) {
-      if (kullanici['email'] == email && kullanici['sifre'] == sifre) {
-        _aktifKullanici = kullanici;
-        return true;
+      bool emailDogru = kullanici['email'].toString().toLowerCase() == email.toLowerCase();
+      bool sifreDogru = kullanici['sifre'] == sifre;
+
+      if (emailDogru && sifreDogru) {
+        // KULLANICI BULUNDU, ŞİMDİ ROL KONTROLÜ YAPALIM
+        String rol = kullanici['rol'];
+
+        // 1. Durum: İşletme Kapısından Girmeye Çalışıyor
+        if (isletmeGirisiMi) {
+          // Sadece 'admin' ve 'isletme' girebilir
+          if (rol == 'admin' || rol == 'isletme') {
+            _aktifKullanici = kullanici;
+            return true;
+          } else {
+            print("HATA: Oyuncu hesabı işletme panelinden giremez!");
+            return false;
+          }
+        } 
+        // 2. Durum: Oyuncu Kapısından Girmeye Çalışıyor
+        else {
+          // Sadece 'oyuncu' girebilir (Adminler oyuncu tarafından giremez diyelim veya girebilsin istersen burayı açabiliriz)
+          if (rol == 'oyuncu') {
+            _aktifKullanici = kullanici;
+            return true;
+          } else {
+            print("HATA: İşletme hesabı oyuncu panelinden giremez!");
+            return false;
+          }
+        }
       }
     }
     return false;

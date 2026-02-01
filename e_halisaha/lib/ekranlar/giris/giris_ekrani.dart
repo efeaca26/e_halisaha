@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../cekirdek/servisler/kimlik_servisi.dart'; // Servisimizi çağırdık
+import '../../cekirdek/servisler/kimlik_servisi.dart';
 import '../anasayfa/anasayfa_ekrani.dart';
-
 
 class GirisEkrani extends StatefulWidget {
   const GirisEkrani({super.key});
@@ -13,10 +12,8 @@ class GirisEkrani extends StatefulWidget {
 class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool isletmeModu = false;
-  bool _yukleniyor = false; // Dönen yuvarlak (Loading) için
+  bool _yukleniyor = false;
 
-  // --- YAZI KUTUSU KONTROLCÜLERİ ---
-  // Yazılanları okumak için bunları tanımlamamız şart
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _sifreController = TextEditingController();
   
@@ -33,7 +30,7 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
 
   // --- GİRİŞ İŞLEMİ ---
   void _girisYap() async {
-    String email = _emailController.text.trim(); // Boşlukları temizle
+    String email = _emailController.text.trim();
     String sifre = _sifreController.text.trim();
 
     if (email.isEmpty || sifre.isEmpty) {
@@ -41,23 +38,24 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
       return;
     }
 
-    setState(() => _yukleniyor = true); // Yükleniyor başlat
+    setState(() => _yukleniyor = true);
 
-    bool basarili = await KimlikServisi.girisYap(email, sifre);
+    // DÜZELTME: Buraya 'isletmeModu' parametresini ekledik!
+    // Artık servis, hangi sekmeden girmeye çalıştığımızı biliyor.
+    bool basarili = await KimlikServisi.girisYap(email, sifre, isletmeModu);
 
-    setState(() => _yukleniyor = false); // Yükleniyor durdur
+    setState(() => _yukleniyor = false);
 
     if (basarili) {
-      // Başarılıysa Ana Sayfaya git
       if (mounted) {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AnasayfaEkrani()));
       }
     } else {
-      _hataGoster("E-posta veya şifre hatalı!");
+      // Hata mesajını özelleştirebiliriz ama şimdilik genel kalsın
+      _hataGoster("Giriş başarısız! Bilgileri veya giriş modunu (Oyuncu/İşletme) kontrol edin.");
     }
   }
 
-  // --- KAYIT İŞLEMİ ---
   void _kayitOl() async {
     String isim = _kayitIsimController.text.trim();
     String email = _kayitEmailController.text.trim();
@@ -75,8 +73,6 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
     setState(() => _yukleniyor = false);
 
     if (basarili) {
-      // Kayıt başarılı, şimdi otomatik giriş yapsın mı yoksa giriş sekmesine mi atsın?
-      // Biz direkt ana sayfaya alalım kullanıcıyı yormayalım.
       if (mounted) {
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AnasayfaEkrani()));
       }
@@ -93,7 +89,6 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
 
   @override
   Widget build(BuildContext context) {
-      print("Giriş Ekranı Çiziliyor..."); // <--- Bunu ekle ve konsolu izle
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -111,7 +106,6 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
             child: Column(
               children: [
                 const SizedBox(height: 40),
-                // Logo
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -127,7 +121,6 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
                 Text(isletmeModu ? "İşletme Yönetim Paneli" : "Saha Bul, Kirala, Oyna!", style: const TextStyle(color: Color(0xFF6B7280), fontSize: 16)),
                 const SizedBox(height: 40),
 
-                // Kart
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
@@ -137,7 +130,6 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
                   ),
                   child: Column(
                     children: [
-                      // Oyuncu / İşletme Switch
                       Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(12)),
@@ -149,8 +141,6 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
                         ),
                       ),
                       const SizedBox(height: 24),
-
-                      // Tab Bar
                       TabBar(
                         controller: _tabController,
                         labelColor: const Color(0xFF22C55E),
@@ -160,8 +150,6 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
                         tabs: const [Tab(text: "Giriş Yap"), Tab(text: "Kayıt Ol")],
                       ),
                       const SizedBox(height: 24),
-
-                      // Form Alanı
                       SizedBox(
                         height: 320,
                         child: TabBarView(
