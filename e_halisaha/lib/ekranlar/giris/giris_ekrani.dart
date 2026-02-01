@@ -13,6 +13,10 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
   late TabController _tabController;
   bool isletmeModu = false;
   bool _yukleniyor = false;
+  
+  // --- ŞİFRE GİZLEME/GÖSTERME DEĞİŞKENLERİ ---
+  bool _girisSifreGizli = true; // Giriş ekranı için
+  bool _kayitSifreGizli = true; // Kayıt ekranı için
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _sifreController = TextEditingController();
@@ -28,7 +32,6 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
     _tabController = TabController(length: 2, vsync: this);
   }
 
-  // --- GİRİŞ İŞLEMİ ---
   void _girisYap() async {
     String email = _emailController.text.trim();
     String sifre = _sifreController.text.trim();
@@ -40,8 +43,7 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
 
     setState(() => _yukleniyor = true);
 
-    // DÜZELTME: Buraya 'isletmeModu' parametresini ekledik!
-    // Artık servis, hangi sekmeden girmeye çalıştığımızı biliyor.
+    // Düzeltme: Servis çağrısı güncellendi
     bool basarili = await KimlikServisi.girisYap(email, sifre, isletmeModu);
 
     setState(() => _yukleniyor = false);
@@ -51,8 +53,7 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
         Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AnasayfaEkrani()));
       }
     } else {
-      // Hata mesajını özelleştirebiliriz ama şimdilik genel kalsın
-      _hataGoster("Giriş başarısız! Bilgileri veya giriş modunu (Oyuncu/İşletme) kontrol edin.");
+      _hataGoster("Giriş başarısız! Bilgileri ve modu kontrol edin.");
     }
   }
 
@@ -192,7 +193,22 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
       children: [
         TextField(controller: _emailController, decoration: const InputDecoration(hintText: "E-Posta Adresi", prefixIcon: Icon(Icons.mail_outline))),
         const SizedBox(height: 16),
-        TextField(controller: _sifreController, obscureText: true, decoration: const InputDecoration(hintText: "Şifre", prefixIcon: Icon(Icons.lock_outline))),
+        
+        // --- GİRİŞ ŞİFRESİ ---
+        TextField(
+          controller: _sifreController, 
+          obscureText: _girisSifreGizli, // Gizli mi?
+          decoration: InputDecoration(
+            hintText: "Şifre", 
+            prefixIcon: const Icon(Icons.lock_outline),
+            // Göz İkonu
+            suffixIcon: IconButton(
+              icon: Icon(_girisSifreGizli ? Icons.visibility : Icons.visibility_off),
+              onPressed: () => setState(() => _girisSifreGizli = !_girisSifreGizli),
+            )
+          )
+        ),
+        
         const Spacer(),
         _yukleniyor 
           ? const CircularProgressIndicator(color: Color(0xFF22C55E))
@@ -209,7 +225,21 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
           const SizedBox(height: 16),
           TextField(controller: _kayitEmailController, decoration: const InputDecoration(hintText: "E-Posta", prefixIcon: Icon(Icons.mail_outline))),
           const SizedBox(height: 16),
-          TextField(controller: _kayitSifreController, obscureText: true, decoration: const InputDecoration(hintText: "Şifre", prefixIcon: Icon(Icons.lock_outline))),
+          
+          // --- KAYIT ŞİFRESİ ---
+          TextField(
+            controller: _kayitSifreController, 
+            obscureText: _kayitSifreGizli,
+            decoration: InputDecoration(
+              hintText: "Şifre", 
+              prefixIcon: const Icon(Icons.lock_outline),
+              suffixIcon: IconButton(
+                icon: Icon(_kayitSifreGizli ? Icons.visibility : Icons.visibility_off),
+                onPressed: () => setState(() => _kayitSifreGizli = !_kayitSifreGizli),
+              )
+            )
+          ),
+
           if (isletmeModu) ...[
             const SizedBox(height: 16),
             TextField(controller: _kayitKonumController, decoration: const InputDecoration(hintText: "Konum (İl/İlçe)", prefixIcon: Icon(Icons.location_on_outlined))),
