@@ -4,10 +4,11 @@ class SahaModeli {
   final String ilce;
   final String tamKonum;
   final double fiyat;
-  final double kapora; //
+  final double kapora;
   final String resimYolu;
   final double puan;
-  final List<String> ozellikler; // (Duş, Otopark vs.)
+  final List<String> ozellikler;
+  final String? isletmeSahibiEmail;
 
   SahaModeli({
     required this.id,
@@ -19,5 +20,6 @@ class SahaModeli {
     required this.resimYolu,
     required this.puan,
     required this.ozellikler,
+    this.isletmeSahibiEmail,
   });
 }
