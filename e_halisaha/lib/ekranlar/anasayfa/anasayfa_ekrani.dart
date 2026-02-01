@@ -26,7 +26,6 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
 
   @override
   Widget build(BuildContext context) {
-    // Admin ise üstte yönetim paneli butonu görünsün
     bool isAdmin = KimlikServisi.isAdmin;
 
     return Scaffold(
@@ -67,7 +66,9 @@ class AnasayfaIcerik extends StatefulWidget {
 }
 
 class _AnasayfaIcerikState extends State<AnasayfaIcerik> {
-  List<SahaModeli> _sahalar = [];
+  // İKİ LİSTE KULLANIYORUZ:
+  List<SahaModeli> _tumSahalar = [];        // Tüm veriyi burada tutarız (Kaybetmemek için)
+  List<SahaModeli> _gosterilenSahalar = []; // Ekranda sadece bunu gösteririz
 
   @override
   void initState() {
@@ -75,23 +76,45 @@ class _AnasayfaIcerikState extends State<AnasayfaIcerik> {
     _verileriYukle();
   }
 
-  // Verileri role göre filtreleyip yükleyen fonksiyon
   void _verileriYukle() {
     setState(() {
-      final tumSahalar = SahteVeriServisi.sahalariGetir();
+      final hamVeri = SahteVeriServisi.sahalariGetir();
       final aktifKullanici = KimlikServisi.aktifKullanici;
 
+      // 1. ADIM: Rol Bazlı Filtreleme (Admin/İşletme/Oyuncu)
       if (KimlikServisi.isIsletme) {
         // İşletme sadece kendi sahalarını görür
-        _sahalar = tumSahalar.where((saha) => saha.isletmeSahibiEmail == aktifKullanici?['email']).toList();
+        _tumSahalar = hamVeri.where((saha) => saha.isletmeSahibiEmail == aktifKullanici?['email']).toList();
       } else {
         // Admin ve Oyuncu hepsini görür
-        _sahalar = tumSahalar;
+        _tumSahalar = hamVeri;
+      }
+
+      // Başlangıçta arama yapılmadığı için ikisi aynıdır
+      _gosterilenSahalar = List.from(_tumSahalar);
+    });
+  }
+
+  // --- ARAMA FONKSİYONU ---
+  void _aramaYap(String arananKelime) {
+    setState(() {
+      if (arananKelime.isEmpty) {
+        // Arama kutusu boşsa hepsini göster
+        _gosterilenSahalar = List.from(_tumSahalar);
+      } else {
+        // Doluysa filtrele
+        _gosterilenSahalar = _tumSahalar.where((saha) {
+          final isim = saha.isim.toLowerCase();
+          final ilce = saha.ilce.toLowerCase();
+          final aranan = arananKelime.toLowerCase();
+          
+          return isim.contains(aranan) || ilce.contains(aranan);
+        }).toList();
       }
     });
   }
 
-  // --- DÜZENLEME FONKSİYONU ---
+  // ... (Düzenle, Sil, Ekle Dialogları değişmedi) ...
   void _duzenleDialog(SahaModeli saha) {
     TextEditingController isimController = TextEditingController(text: saha.isim);
     TextEditingController fiyatController = TextEditingController(text: saha.fiyat.toString());
@@ -112,16 +135,8 @@ class _AnasayfaIcerikState extends State<AnasayfaIcerik> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("İptal")),
           ElevatedButton(
             onPressed: () {
-              // Veriyi Güncelle
-              SahteVeriServisi.sahaGuncelle(
-                saha, 
-                isimController.text, 
-                double.tryParse(fiyatController.text) ?? saha.fiyat
-              );
-              
-              // EKRANI YENİLE (Çok Önemli)
+              SahteVeriServisi.sahaGuncelle(saha, isimController.text, double.tryParse(fiyatController.text) ?? saha.fiyat);
               _verileriYukle(); 
-              
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Saha güncellendi! ✅"), backgroundColor: Colors.green));
             },
@@ -132,7 +147,6 @@ class _AnasayfaIcerikState extends State<AnasayfaIcerik> {
     );
   }
 
-  // --- SİLME FONKSİYONU ---
   void _silDialog(SahaModeli saha) {
     showDialog(
       context: context,
@@ -144,12 +158,8 @@ class _AnasayfaIcerikState extends State<AnasayfaIcerik> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
-              // Veriyi Sil
               SahteVeriServisi.sahaSil(saha);
-              
-              // EKRANI YENİLE
               _verileriYukle();
-              
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Saha silindi! 🗑️"), backgroundColor: Colors.red));
             },
@@ -160,7 +170,6 @@ class _AnasayfaIcerikState extends State<AnasayfaIcerik> {
     );
   }
 
-  // --- EKLEME FONKSİYONU ---
   void _sahaEkleDialog() {
     TextEditingController adController = TextEditingController();
     TextEditingController fiyatController = TextEditingController();
@@ -186,7 +195,6 @@ class _AnasayfaIcerikState extends State<AnasayfaIcerik> {
             onPressed: () {
               if (adController.text.isNotEmpty && fiyatController.text.isNotEmpty) {
                 double fiyat = double.tryParse(fiyatController.text) ?? 0;
-                
                 SahaModeli yeniSaha = SahaModeli(
                   id: DateTime.now().millisecondsSinceEpoch.toString(),
                   isim: adController.text,
@@ -199,7 +207,6 @@ class _AnasayfaIcerikState extends State<AnasayfaIcerik> {
                   ozellikler: ["Otopark"],
                   isletmeSahibiEmail: KimlikServisi.aktifKullanici?['email'], 
                 );
-
                 SahteVeriServisi.sahaEkle(yeniSaha);
                 _verileriYukle(); 
                 Navigator.pop(ctx);
@@ -217,13 +224,13 @@ class _AnasayfaIcerikState extends State<AnasayfaIcerik> {
   Widget build(BuildContext context) {
     bool isAdmin = KimlikServisi.isAdmin;
     bool isIsletme = KimlikServisi.isIsletme;
-    bool isYetkili = isAdmin || isIsletme; // Düzenleme yetkisi olanlar
+    bool isYetkili = isAdmin || isIsletme;
+    final aktifEmail = KimlikServisi.aktifKullanici?['email'] ?? "";
 
     return SafeArea(
       child: Scaffold(
         backgroundColor: Colors.transparent,
         
-        // Sadece İşletme Sahipleri Ekleme Yapabilir
         floatingActionButton: isIsletme 
           ? FloatingActionButton.extended(
               onPressed: _sahaEkleDialog,
@@ -238,7 +245,17 @@ class _AnasayfaIcerikState extends State<AnasayfaIcerik> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ÜST BAŞLIK TASARIMI
+              // HATA AYIKLAMA (Geçici - Hangi hesapta olduğunu gör)
+              if (isIsletme)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  margin: const EdgeInsets.only(bottom: 10),
+                  color: Colors.orange.withOpacity(0.2),
+                  child: Text("Yönetilen Sahalar: $aktifEmail", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.deepOrange)),
+                ),
+
+              // ÜST BAŞLIK
               if (!isYetkili)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -250,15 +267,10 @@ class _AnasayfaIcerikState extends State<AnasayfaIcerik> {
                         Text("Maç Yapmaya Hazır mısın?", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
                       ],
                     ),
-                    CircleAvatar(
-                      radius: 25,
-                      backgroundColor: const Color(0xFF22C55E),
-                      child: const Icon(Icons.sports_soccer, color: Colors.white),
-                    )
+                    CircleAvatar(radius: 25, backgroundColor: const Color(0xFF22C55E), child: const Icon(Icons.sports_soccer, color: Colors.white))
                   ],
                 )
               else 
-                // Yetkili Başlığı
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -269,18 +281,23 @@ class _AnasayfaIcerikState extends State<AnasayfaIcerik> {
 
               const SizedBox(height: 20),
 
-              // ARAMA VE RAKİP BUL (Sadece Oyuncular İçin)
-              if (!isYetkili) ...[
-                TextField(
-                  // Arama fonksiyonu buraya entegre edilebilir
-                  decoration: InputDecoration(
-                    hintText: "Saha, ilçe veya takım ara...",
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
-                    filled: true, fillColor: Colors.white,
-                  ),
+              // --- ARAMA KUTUSU ---
+              // Sadece oyuncular veya admin görsün (İşletme zaten az sahaya sahip ama o da arayabilir)
+              TextField(
+                onChanged: _aramaYap, // <--- ARAMA FONKSİYONU BAĞLANDI
+                decoration: InputDecoration(
+                  hintText: isYetkili ? "Sahalarınızda arayın..." : "Saha, ilçe veya takım ara...",
+                  prefixIcon: const Icon(Icons.search),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
+                  filled: true, fillColor: Colors.white,
                 ),
-                const SizedBox(height: 20),
+              ),
+              // --------------------
+
+              const SizedBox(height: 20),
+
+              // RAKİP BUL (Sadece Oyuncular İçin)
+              if (!isYetkili) ...[
                 GestureDetector(
                   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const RakipBulEkrani())),
                   child: Container(
@@ -315,19 +332,19 @@ class _AnasayfaIcerikState extends State<AnasayfaIcerik> {
               const Text("Saha Listesi", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
 
-              // SAHA LİSTESİ
-              _sahalar.isEmpty 
+              // LİSTELEME (_gosterilenSahalar kullanılıyor)
+              _gosterilenSahalar.isEmpty 
                 ? Container(
                     padding: const EdgeInsets.all(30),
                     alignment: Alignment.center,
-                    child: const Text("Görüntülenecek saha yok.", style: TextStyle(color: Colors.grey)),
+                    child: Text(isIsletme ? "Sahanız bulunamadı." : "Aradığınız kriterde saha yok.", style: const TextStyle(color: Colors.grey)),
                   )
                 : ListView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
-                    itemCount: _sahalar.length,
+                    itemCount: _gosterilenSahalar.length,
                     itemBuilder: (context, index) {
-                      final saha = _sahalar[index];
+                      final saha = _gosterilenSahalar[index];
                       return GestureDetector(
                         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SahaDetayEkrani(saha: saha))),
                         child: Stack(
@@ -356,14 +373,13 @@ class _AnasayfaIcerikState extends State<AnasayfaIcerik> {
                               ),
                             ),
                             
-                            // YETKİLİ BUTONLARI (Düzenle ve Sil)
+                            // YETKİLİ BUTONLARI
                             if (isYetkili) 
                               Positioned(
                                 top: 10,
                                 right: 10,
                                 child: Row(
                                   children: [
-                                    // DÜZENLE BUTONU
                                     GestureDetector(
                                       onTap: () => _duzenleDialog(saha),
                                       child: Container(
@@ -373,7 +389,6 @@ class _AnasayfaIcerikState extends State<AnasayfaIcerik> {
                                       ),
                                     ),
                                     const SizedBox(width: 8),
-                                    // SİL BUTONU
                                     GestureDetector(
                                       onTap: () => _silDialog(saha),
                                       child: Container(
