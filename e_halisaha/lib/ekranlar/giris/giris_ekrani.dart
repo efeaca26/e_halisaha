@@ -9,14 +9,21 @@ class GirisEkrani extends StatefulWidget {
   State<GirisEkrani> createState() => _GirisEkraniState();
 }
 
-class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStateMixin {
+class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin {
+  
+  late AnimationController _topKontrolcusu;
+  late AnimationController _icerikKontrolcusu;
+
+  late Animation<double> _topDusmeAnimasyonu;
+  late Animation<double> _icerikOpaklik;
+  late Animation<Offset> _icerikKayma;
+
   late TabController _tabController;
   bool isletmeModu = false;
   bool _yukleniyor = false;
   
-  // --- ŞİFRE GİZLEME/GÖSTERME DEĞİŞKENLERİ ---
-  bool _girisSifreGizli = true; // Giriş ekranı için
-  bool _kayitSifreGizli = true; // Kayıt ekranı için
+  bool _girisSifreGizli = true; 
+  bool _kayitSifreGizli = true; 
 
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _sifreController = TextEditingController();
@@ -30,6 +37,59 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+
+    // --- 1. TOP ANİMASYONU (GÜNCELLENDİ) ---
+    // Önceki 1800ms idi, şimdi 1000ms (1 saniye). 
+    // Bu sayede "balon gibi" değil "futbol topu gibi" düşecek.
+    _topKontrolcusu = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000), 
+    );
+
+    // Mesafe -500 yerine -350 yapıldı (Daha kontrollü düşüş)
+    _topDusmeAnimasyonu = Tween<double>(begin: -350, end: 0).animate(
+      CurvedAnimation(parent: _topKontrolcusu, curve: Curves.bounceOut),
+    );
+
+    // --- 2. İÇERİK ANİMASYONU ---
+    _icerikKontrolcusu = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    _icerikOpaklik = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _icerikKontrolcusu, curve: Curves.easeIn),
+    );
+
+    _icerikKayma = Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
+      CurvedAnimation(parent: _icerikKontrolcusu, curve: Curves.easeOutCubic),
+    );
+
+    _animasyonuBaslat();
+  }
+
+  void _animasyonuBaslat() async {
+    await Future.delayed(const Duration(milliseconds: 100)); // Çok az bekle
+    _topKontrolcusu.forward(); 
+
+    // Top tam durmadan (800. milisaniyede) form gelmeye başlasın.
+    // Bu "overlapping" tekniği geçişi çok daha smooth yapar.
+    await Future.delayed(const Duration(milliseconds: 800));
+    _icerikKontrolcusu.forward(); 
+  }
+
+  @override
+  void dispose() {
+    _topKontrolcusu.dispose();
+    _icerikKontrolcusu.dispose();
+    _tabController.dispose();
+    _emailController.dispose();
+    _sifreController.dispose();
+    _kayitIsimController.dispose();
+    _kayitEmailController.dispose();
+    _kayitSifreController.dispose();
+    _kayitKonumController.dispose();
+    super.dispose();
   }
 
   void _girisYap() async {
@@ -42,18 +102,13 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
     }
 
     setState(() => _yukleniyor = true);
-
-    // Düzeltme: Servis çağrısı güncellendi
     bool basarili = await KimlikServisi.girisYap(email, sifre, isletmeModu);
-
     setState(() => _yukleniyor = false);
 
     if (basarili) {
-      if (mounted) {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AnasayfaEkrani()));
-      }
+      if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AnasayfaEkrani()));
     } else {
-      _hataGoster("Giriş başarısız! Bilgileri ve modu kontrol edin.");
+      _hataGoster("Giriş başarısız! Bilgileri kontrol edin.");
     }
   }
 
@@ -68,24 +123,18 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
     }
 
     setState(() => _yukleniyor = true);
-
     bool basarili = await KimlikServisi.kayitOl(isim, email, sifre, isletmeModu);
-
     setState(() => _yukleniyor = false);
 
     if (basarili) {
-      if (mounted) {
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AnasayfaEkrani()));
-      }
+      if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AnasayfaEkrani()));
     } else {
-      _hataGoster("Bu e-posta adresi zaten kayıtlı.");
+      _hataGoster("Kayıt olunamadı. E-posta kullanımda olabilir.");
     }
   }
 
   void _hataGoster(String mesaj) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(mesaj), backgroundColor: Colors.red),
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mesaj), backgroundColor: Colors.red));
   }
 
   @override
@@ -106,59 +155,94 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
             padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 60.0),
             child: Column(
               children: [
-                const SizedBox(height: 40),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.2), blurRadius: 20)],
-                  ),
-                  child: const Icon(Icons.sports_soccer, size: 64, color: Color(0xFF22C55E)),
-                ),
-                const SizedBox(height: 24),
-                const Text("eHalısaha", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Color(0xFF1F2937))),
-                const SizedBox(height: 8),
-                Text(isletmeModu ? "İşletme Yönetim Paneli" : "Saha Bul, Kirala, Oyna!", style: const TextStyle(color: Color(0xFF6B7280), fontSize: 16)),
-                const SizedBox(height: 40),
+                const SizedBox(height: 50),
+                
+                // --- 1. TOP ANİMASYONU ---
+                AnimatedBuilder(
+                  animation: _topDusmeAnimasyonu,
+                  builder: (context, child) {
+                    // Gölge Opaklığı Hesaplama: Top havada iken gölge silik, yere inince koyu
+                    double golgeOpaklik = 1.0 - (_topDusmeAnimasyonu.value.abs() / 350);
+                    golgeOpaklik = golgeOpaklik.clamp(0.0, 0.3); // Max gölge %30
 
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
-                  ),
-                  child: Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(12)),
-                        child: Row(
-                          children: [
-                            _modSecici("Oyuncu", !isletmeModu, () => setState(() => isletmeModu = false)),
-                            _modSecici("İşletme", isletmeModu, () => setState(() => isletmeModu = true)),
+                    return Transform.translate(
+                      offset: Offset(0, _topDusmeAnimasyonu.value),
+                      child: Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.green.withOpacity(golgeOpaklik), // Dinamik gölge
+                              blurRadius: 20 + (golgeOpaklik * 10), // Gölge boyutu da değişiyor
+                              spreadRadius: 2,
+                              offset: const Offset(0, 10),
+                            )
                           ],
                         ),
+                        child: const Icon(Icons.sports_soccer, size: 64, color: Color(0xFF22C55E)),
                       ),
-                      const SizedBox(height: 24),
-                      TabBar(
-                        controller: _tabController,
-                        labelColor: const Color(0xFF22C55E),
-                        unselectedLabelColor: const Color(0xFF6B7280),
-                        indicatorColor: const Color(0xFF22C55E),
-                        dividerColor: Colors.transparent,
-                        tabs: const [Tab(text: "Giriş Yap"), Tab(text: "Kayıt Ol")],
-                      ),
-                      const SizedBox(height: 24),
-                      SizedBox(
-                        height: 320,
-                        child: TabBarView(
-                          controller: _tabController,
-                          children: [_girisFormu(), _kayitFormu()],
+                    );
+                  },
+                ),
+                
+                const SizedBox(height: 30),
+                
+                // --- 2. İÇERİK ANİMASYONU ---
+                FadeTransition(
+                  opacity: _icerikOpaklik,
+                  child: SlideTransition(
+                    position: _icerikKayma,
+                    child: Column(
+                      children: [
+                        const Text("eHalısaha", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Color(0xFF1F2937))),
+                        const SizedBox(height: 8),
+                        Text(isletmeModu ? "İşletme Yönetim Paneli" : "Saha Bul, Kirala, Oyna!", style: const TextStyle(color: Color(0xFF6B7280), fontSize: 16)),
+                        
+                        const SizedBox(height: 40),
+
+                        Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
+                          ),
+                          child: Column(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(12)),
+                                child: Row(
+                                  children: [
+                                    _modSecici("Oyuncu", !isletmeModu, () => setState(() => isletmeModu = false)),
+                                    _modSecici("İşletme", isletmeModu, () => setState(() => isletmeModu = true)),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              TabBar(
+                                controller: _tabController,
+                                labelColor: const Color(0xFF22C55E),
+                                unselectedLabelColor: const Color(0xFF6B7280),
+                                indicatorColor: const Color(0xFF22C55E),
+                                dividerColor: Colors.transparent,
+                                tabs: const [Tab(text: "Giriş Yap"), Tab(text: "Kayıt Ol")],
+                              ),
+                              const SizedBox(height: 24),
+                              SizedBox(
+                                height: 320,
+                                child: TabBarView(
+                                  controller: _tabController,
+                                  children: [_girisFormu(), _kayitFormu()],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -193,26 +277,20 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
       children: [
         TextField(controller: _emailController, decoration: const InputDecoration(hintText: "E-Posta Adresi", prefixIcon: Icon(Icons.mail_outline))),
         const SizedBox(height: 16),
-        
-        // --- GİRİŞ ŞİFRESİ ---
         TextField(
           controller: _sifreController, 
-          obscureText: _girisSifreGizli, // Gizli mi?
+          obscureText: _girisSifreGizli, 
           decoration: InputDecoration(
             hintText: "Şifre", 
             prefixIcon: const Icon(Icons.lock_outline),
-            // Göz İkonu
             suffixIcon: IconButton(
               icon: Icon(_girisSifreGizli ? Icons.visibility : Icons.visibility_off),
               onPressed: () => setState(() => _girisSifreGizli = !_girisSifreGizli),
             )
           )
         ),
-        
         const Spacer(),
-        _yukleniyor 
-          ? const CircularProgressIndicator(color: Color(0xFF22C55E))
-          : _anaButon("GİRİŞ YAP", _girisYap),
+        _yukleniyor ? const CircularProgressIndicator(color: Color(0xFF22C55E)) : _anaButon("GİRİŞ YAP", _girisYap),
       ],
     );
   }
@@ -225,8 +303,6 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
           const SizedBox(height: 16),
           TextField(controller: _kayitEmailController, decoration: const InputDecoration(hintText: "E-Posta", prefixIcon: Icon(Icons.mail_outline))),
           const SizedBox(height: 16),
-          
-          // --- KAYIT ŞİFRESİ ---
           TextField(
             controller: _kayitSifreController, 
             obscureText: _kayitSifreGizli,
@@ -239,15 +315,12 @@ class _GirisEkraniState extends State<GirisEkrani> with SingleTickerProviderStat
               )
             )
           ),
-
           if (isletmeModu) ...[
             const SizedBox(height: 16),
             TextField(controller: _kayitKonumController, decoration: const InputDecoration(hintText: "Konum (İl/İlçe)", prefixIcon: Icon(Icons.location_on_outlined))),
           ],
           const SizedBox(height: 24),
-          _yukleniyor 
-            ? const CircularProgressIndicator(color: Color(0xFF22C55E))
-            : _anaButon("KAYIT OL", _kayitOl),
+          _yukleniyor ? const CircularProgressIndicator(color: Color(0xFF22C55E)) : _anaButon("KAYIT OL", _kayitOl),
         ],
       ),
     );

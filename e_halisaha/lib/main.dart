@@ -35,7 +35,7 @@ class EHalisahaUygulamasi extends StatelessWidget {
           darkTheme: ThemeData(
             brightness: Brightness.dark,
             primaryColor: const Color(0xFF22C55E),
-            scaffoldBackgroundColor: const Color(0xFF111827),
+            scaffoldBackgroundColor: const Color(0xFF111827), // Koyu gri
             appBarTheme: const AppBarTheme(
               backgroundColor: Color(0xFF1F2937),
               foregroundColor: Colors.white,
@@ -43,6 +43,7 @@ class EHalisahaUygulamasi extends StatelessWidget {
             ),
           ),
           
+
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
