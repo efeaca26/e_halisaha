@@ -284,7 +284,8 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
             hintText: "Şifre", 
             prefixIcon: const Icon(Icons.lock_outline),
             suffixIcon: IconButton(
-              icon: Icon(_girisSifreGizli ? Icons.visibility : Icons.visibility_off),
+              // DÜZELTME BURADA: Gizliyse (True) -> Göz Kapalı (Off), Açıksa -> Göz Açık
+              icon: Icon(_girisSifreGizli ? Icons.visibility_off : Icons.visibility),
               onPressed: () => setState(() => _girisSifreGizli = !_girisSifreGizli),
             )
           )
@@ -310,7 +311,8 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
               hintText: "Şifre", 
               prefixIcon: const Icon(Icons.lock_outline),
               suffixIcon: IconButton(
-                icon: Icon(_kayitSifreGizli ? Icons.visibility : Icons.visibility_off),
+                // DÜZELTME BURADA DA YAPILDI
+                icon: Icon(_kayitSifreGizli ? Icons.visibility_off : Icons.visibility),
                 onPressed: () => setState(() => _kayitSifreGizli = !_kayitSifreGizli),
               )
             )
