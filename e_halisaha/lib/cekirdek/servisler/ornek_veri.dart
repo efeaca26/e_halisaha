@@ -12,7 +12,7 @@ class SahteVeriServisi {
       puan: 4.8,
       resimYolu: "assets/resimler/saha1.png",
       ozellikler: ["Duş", "Otopark"],
-      isletmeSahibiEmail: "admin@ehalisaha.com", // Admin'in sahası
+      isletmeSahibiEmail: "admin@ehalisaha.com",
     ),
     SahaModeli(
       id: "2",
@@ -24,7 +24,7 @@ class SahteVeriServisi {
       puan: 4.5,
       resimYolu: "assets/resimler/saha2.png",
       ozellikler: ["Duş", "Kafeterya"],
-      isletmeSahibiEmail: "isletme@yildizspor.com", // <--- YENİ İŞLETME HESABININ SAHASI
+      isletmeSahibiEmail: "yildizspor@ehalisaha.com",
     ),
     SahaModeli(
       id: "3",
@@ -42,7 +42,7 @@ class SahteVeriServisi {
 
   static List<SahaModeli> sahalariGetir() { return _sahalar; }
 
-  // YENİ: Saha Ekleme (İşletmeler için)
+  
   static void sahaEkle(SahaModeli yeniSaha) {
     _sahalar.add(yeniSaha);
   }

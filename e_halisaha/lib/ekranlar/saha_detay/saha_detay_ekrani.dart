@@ -3,7 +3,6 @@ import '../../modeller/saha_modeli.dart';
 import '../../modeller/oyuncu_modeli.dart';
 import '../../cekirdek/servisler/kimlik_servisi.dart';
 import '../../cekirdek/servisler/rezervasyon_servisi.dart';
-import '../anasayfa/anasayfa_ekrani.dart';
 import '../../ekranlar/odeme/odeme_ekrani.dart';
 import 'oyuncu_secim_ekrani.dart';
 
@@ -16,7 +15,7 @@ class SahaDetayEkrani extends StatefulWidget {
 }
 
 class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
-  DateTime _seciliTarih = DateTime.now(); 
+  final DateTime _seciliTarih = DateTime.now(); 
   int? _seciliSaatIndex;
   
   final List<String> _saatListesi = ["18:00", "19:00", "20:00", "21:00", "22:00", "23:00"];
@@ -31,7 +30,16 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
     return false;
   }
 
-  // --- İŞLETME: MANUEL KAPATMA DİYALOĞU ---
+  // --- OYUNCU ÜCRETİNİ AYRI HESAPLA ---
+  double _oyuncuUcretiToplami() {
+    double toplam = 0;
+    for (var oyuncu in _eklenenOyuncular) {
+      toplam += oyuncu.ucret;
+    }
+    return toplam;
+  }
+  // ------------------------------------
+
   void _manuelEkleDialog(String saat) {
     TextEditingController notController = TextEditingController();
 
@@ -73,7 +81,6 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
     );
   }
 
-  // --- İŞLETME: ONAY BEKLEYEN DİYALOG ---
   void _onayDialog(String saat) {
     showDialog(
       context: context,
@@ -83,7 +90,6 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
         actions: [
           TextButton(
             onPressed: () {
-              // Reddet / Sil
               RezervasyonServisi.rezervasyonIptal(widget.saha.id, _seciliTarih, saat);
               setState(() {});
               Navigator.pop(ctx);
@@ -92,9 +98,8 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
             child: const Text("Reddet", style: TextStyle(color: Colors.red)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
             onPressed: () {
-              // Onayla
               RezervasyonServisi.rezervasyonuOnayla(widget.saha.id, _seciliTarih, saat);
               setState(() {});
               Navigator.pop(ctx);
@@ -107,7 +112,6 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
     );
   }
 
-  // --- İŞLETME: İPTAL DİYALOĞU ---
   void _iptalEtDialog(String saat) {
     showDialog(
       context: context,
@@ -117,38 +121,33 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Vazgeç")),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () {
               RezervasyonServisi.rezervasyonIptal(widget.saha.id, _seciliTarih, saat);
               setState(() { _seciliSaatIndex = null; }); 
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Rezervasyon silindi!"), backgroundColor: Colors.red));
             },
-            child: const Text("Sil", style: TextStyle(color: Colors.white)),
+            child: const Text("Sil"),
           )
         ],
       ),
     );
   }
 
-  double _toplamFiyatiHesapla() {
-    double sahaUcreti = widget.saha.fiyat;
-    double oyuncuUcretleri = 0;
-    for (var oyuncu in _eklenenOyuncular) {
-      oyuncuUcretleri += oyuncu.ucret;
-    }
-    return sahaUcreti + oyuncuUcretleri;
-  }
-
   void _oyuncuSecimEkraniniAc() async {
     final sonuc = await Navigator.push(context, MaterialPageRoute(builder: (context) => OyuncuSecimEkrani(suankiSecimler: _eklenenOyuncular)));
-    if (sonuc != null && sonuc is List<OyuncuModeli>) setState(() => _eklenenOyuncular = sonuc);
+    if (sonuc != null && sonuc is List<OyuncuModeli>) {
+      setState(() => _eklenenOyuncular = sonuc);
+    }
   }
 
   void _odemeEkraninaGit() {
     if (_seciliSaatIndex == null) return;
     String secilenSaat = _saatListesi[_seciliSaatIndex!];
     
+    // BURASI DEĞİŞTİ: Sadece Saha Fiyatını gönderiyoruz.
+    // Oyuncu ücretleri elden ödeneceği için ödeme ekranına dahil edilmiyor.
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -156,7 +155,7 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
           saha: widget.saha,
           tarih: _seciliTarih,
           saat: secilenSaat,
-          sonTutar: _toplamFiyatiHesapla(), 
+          sonTutar: widget.saha.fiyat, // SADECE SAHA PARASI
         ),
       ),
     );
@@ -169,11 +168,12 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
     Color yaziRengi = isDark ? Colors.white : Colors.black;
     Color altYaziRengi = isDark ? Colors.grey[400]! : Colors.grey;
 
+    double oyuncuParasi = _oyuncuUcretiToplami();
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: CustomScrollView(
         slivers: [
-          // --- O GÜZEL RESİMLİ BAŞLIK GERİ GELDİ ---
           SliverAppBar(
             expandedHeight: 200, pinned: true, backgroundColor: const Color(0xFF22C55E),
             flexibleSpace: FlexibleSpaceBar(background: Image.asset(widget.saha.resimYolu, fit: BoxFit.cover)),
@@ -209,7 +209,6 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                   ),
                   const SizedBox(height: 10),
                   
-                  // --- SAAT KUTULARI ---
                   Wrap(
                     spacing: 10, runSpacing: 10,
                     children: List.generate(_saatListesi.length, (index) {
@@ -217,21 +216,20 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                       String durum = RezervasyonServisi.saatDurumuGetir(widget.saha.id, _seciliTarih, saat);
                       
                       bool dolu = durum == "dolu";
-                      bool beklemede = durum == "beklemede"; // Onay bekleyenler
+                      bool beklemede = durum == "beklemede"; 
                       bool bos = durum == "bos";
                       bool secili = _seciliSaatIndex == index;
 
-                      // Renk Mantığı
                       Color kutuRengi;
                       Color yaziRengiKutu;
                       Color cerceveRengi;
 
                       if (dolu) {
-                        kutuRengi = yetkiliMi ? Colors.red.withOpacity(0.1) : Colors.grey[300]!;
+                        kutuRengi = yetkiliMi ? Colors.red.withValues(alpha: 0.1) : Colors.grey[300]!;
                         yaziRengiKutu = yetkiliMi ? Colors.red : Colors.grey;
                         cerceveRengi = yetkiliMi ? Colors.red : Colors.transparent;
                       } else if (beklemede) {
-                        kutuRengi = Colors.orange.withOpacity(0.1);
+                        kutuRengi = Colors.orange.withValues(alpha: 0.1);
                         yaziRengiKutu = Colors.orange;
                         cerceveRengi = Colors.orange;
                       } else if (secili) {
@@ -247,17 +245,15 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                       return GestureDetector(
                         onTap: () {
                           if (yetkiliMi) {
-                            // YÖNETİCİ: Duruma göre farklı diyalog açar
                             if (dolu) _iptalEtDialog(saat);
                             else if (beklemede) _onayDialog(saat);
                             else _manuelEkleDialog(saat);
                           } else {
-                            // OYUNCU: Sadece boşsa seçebilir
                             if (bos) setState(() => _seciliSaatIndex = index);
                           }
                         },
                         child: Container(
-                          width: 100, // Kutuları eşit genişlikte tutalım
+                          width: 100,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           decoration: BoxDecoration(
                             color: kutuRengi,
@@ -287,7 +283,6 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                   const SizedBox(height: 30),
                   Divider(color: isDark ? Colors.grey[700] : Colors.grey[300]),
                   
-                  // --- OYUNCU EKLEME ---
                   const SizedBox(height: 10),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -309,6 +304,7 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                   ),
                   
                   const SizedBox(height: 15),
+                  
                   if (_eklenenOyuncular.isNotEmpty)
                     Column(
                       children: _eklenenOyuncular.map((oyuncu) {
@@ -320,7 +316,16 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                             children: [
                               CircleAvatar(backgroundImage: NetworkImage(oyuncu.resimUrl), radius: 20),
                               const SizedBox(width: 10),
-                              Expanded(child: Text(oyuncu.isim, style: TextStyle(fontWeight: FontWeight.bold, color: yaziRengi))),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(oyuncu.isim, style: TextStyle(fontWeight: FontWeight.bold, color: yaziRengi)),
+                                    // BİLGİLENDİRME NOTU
+                                    const Text("Ödeme elden yapılacak", style: TextStyle(fontSize: 10, color: Colors.orange)),
+                                  ],
+                                ),
+                              ),
                               Text("+${oyuncu.ucret.toStringAsFixed(0)}₺", style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF22C55E))),
                               IconButton(icon: const Icon(Icons.close, color: Colors.red, size: 20), onPressed: () => setState(() => _eklenenOyuncular.remove(oyuncu)))
                             ],
@@ -328,6 +333,7 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
                         );
                       }).toList(),
                     ),
+                    
                   const SizedBox(height: 80),
                 ],
               ),
@@ -336,18 +342,31 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
         ],
       ),
 
-      // --- ALT BAR (DEVAM ET) ---
+      // --- ALT BAR (GÜNCELLENDİ) ---
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(color: kartRengi, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 20)]),
+        decoration: BoxDecoration(color: kartRengi, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20)]),
         child: Row(
           children: [
             Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Toplam Tutar", style: TextStyle(color: altYaziRengi)),
-                Text("${_toplamFiyatiHesapla().toStringAsFixed(0)}₺", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF22C55E))),
+                Text("Ödenecek Tutar", style: TextStyle(color: altYaziRengi, fontSize: 12)),
+                // 1. SAHA ÜCRETİ (YEŞİL - ŞİMDİ ÖDENECEK)
+                Text(
+                  "${widget.saha.fiyat.toStringAsFixed(0)}₺",
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF22C55E)),
+                ),
+                // 2. OYUNCU ÜCRETİ (TURUNCU - ELDEN ÖDENECEK)
+                if (oyuncuParasi > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2.0),
+                    child: Text(
+                      "+ ${oyuncuParasi.toStringAsFixed(0)}₺ Oyunculara (Elden)",
+                      style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold),
+                    ),
+                  ),
               ],
             ),
             const SizedBox(width: 20),
