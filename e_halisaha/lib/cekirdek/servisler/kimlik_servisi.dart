@@ -9,14 +9,21 @@ class KimlikServisi {
     },
     {
       'isim': 'Efe Acar',
-      'email': 'acar@gmail.com',
+      'email': 'acar@ehalisaha.com',
       'sifre': 'acftk123',
       'isletmeModu': false,
       'rol': 'oyuncu'
     },
     {
+      'isim': 'efe',
+      'email': 'efe@ehalisaha.com',
+      'sifre': 'efe123',
+      'isletmeModu': false,
+      'rol': 'oyuncu'
+    },
+    {
       'isim': 'Yıldız Spor Yönetim',
-      'email': 'isletme@yildizspor.com',
+      'email': 'yildizspor@ehalisaha.com',
       'sifre': 'yildiz123',
       'isletmeModu': true,
       'rol': 'isletme'
