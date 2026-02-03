@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../servisler/api_servisi.dart'; // Az önce yazdığımız dosya
-import '../anasayfa/anasayfa_ekrani.dart'; // Anasayfa dosyanın yolu
+import '../../cekirdek/servisler/api_servisi.dart';
+import '../anasayfa/anasayfa_ekrani.dart';
 
 class GirisEkrani extends StatefulWidget {
   const GirisEkrani({super.key});
