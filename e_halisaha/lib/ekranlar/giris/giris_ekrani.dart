@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../cekirdek/servisler/kimlik_servisi.dart';
-import '../anasayfa/anasayfa_ekrani.dart';
+import '../../servisler/api_servisi.dart'; // Az önce yazdığımız dosya
+import '../anasayfa/anasayfa_ekrani.dart'; // Anasayfa dosyanın yolu
 
 class GirisEkrani extends StatefulWidget {
   const GirisEkrani({super.key});
@@ -10,263 +10,170 @@ class GirisEkrani extends StatefulWidget {
 }
 
 class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin {
-  
   late AnimationController _topKontrolcusu;
   late AnimationController _icerikKontrolcusu;
-
   late Animation<double> _topDusmeAnimasyonu;
   late Animation<double> _icerikOpaklik;
   late Animation<Offset> _icerikKayma;
 
   late TabController _tabController;
   bool isletmeModu = false;
-  bool _yukleniyor = false;
+  bool _yukleniyor = false; // Yükleniyor çarkı için
   
   bool _girisSifreGizli = true; 
   bool _kayitSifreGizli = true; 
 
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _sifreController = TextEditingController();
-  
-  final TextEditingController _kayitIsimController = TextEditingController();
-  final TextEditingController _kayitEmailController = TextEditingController();
-  final TextEditingController _kayitSifreController = TextEditingController();
-  final TextEditingController _kayitKonumController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _sifreController = TextEditingController();
+  final _kayitIsimController = TextEditingController();
+  final _kayitEmailController = TextEditingController();
+  final _kayitSifreController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
 
-    // --- 1. TOP ANİMASYONU (GÜNCELLENDİ) ---
-    // Önceki 1800ms idi, şimdi 1000ms (1 saniye). 
-    // Bu sayede "balon gibi" değil "futbol topu gibi" düşecek.
-    _topKontrolcusu = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1000), 
-    );
+    // --- ANİMASYON AYARLARI ---
+    _topKontrolcusu = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000));
+    _topDusmeAnimasyonu = Tween<double>(begin: -350, end: 0).animate(CurvedAnimation(parent: _topKontrolcusu, curve: Curves.bounceOut));
 
-    // Mesafe -500 yerine -350 yapıldı (Daha kontrollü düşüş)
-    _topDusmeAnimasyonu = Tween<double>(begin: -350, end: 0).animate(
-      CurvedAnimation(parent: _topKontrolcusu, curve: Curves.bounceOut),
-    );
+    _icerikKontrolcusu = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
+    _icerikOpaklik = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _icerikKontrolcusu, curve: Curves.easeIn));
+    _icerikKayma = Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(CurvedAnimation(parent: _icerikKontrolcusu, curve: Curves.easeOutCubic));
 
-    // --- 2. İÇERİK ANİMASYONU ---
-    _icerikKontrolcusu = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 800),
-    );
-
-    _icerikOpaklik = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _icerikKontrolcusu, curve: Curves.easeIn),
-    );
-
-    _icerikKayma = Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
-      CurvedAnimation(parent: _icerikKontrolcusu, curve: Curves.easeOutCubic),
-    );
-
-    _animasyonuBaslat();
+    _baslat();
   }
 
-  void _animasyonuBaslat() async {
-    await Future.delayed(const Duration(milliseconds: 100)); // Çok az bekle
+  void _baslat() async {
+    await Future.delayed(const Duration(milliseconds: 100));
     _topKontrolcusu.forward(); 
-
-    // Top tam durmadan (800. milisaniyede) form gelmeye başlasın.
-    // Bu "overlapping" tekniği geçişi çok daha smooth yapar.
     await Future.delayed(const Duration(milliseconds: 800));
     _icerikKontrolcusu.forward(); 
   }
 
-  @override
-  void dispose() {
-    _topKontrolcusu.dispose();
-    _icerikKontrolcusu.dispose();
-    _tabController.dispose();
-    _emailController.dispose();
-    _sifreController.dispose();
-    _kayitIsimController.dispose();
-    _kayitEmailController.dispose();
-    _kayitSifreController.dispose();
-    _kayitKonumController.dispose();
-    super.dispose();
-  }
-
+  // --- GİRİŞ YAP BUTONUNA BASINCA ---
   void _girisYap() async {
-    String email = _emailController.text.trim();
-    String sifre = _sifreController.text.trim();
-
-    if (email.isEmpty || sifre.isEmpty) {
-      _hataGoster("Lütfen tüm alanları doldurun.");
+    if (_emailController.text.isEmpty || _sifreController.text.isEmpty) {
+      _mesajGoster("Lütfen alanları doldurun", kirmizi: true);
       return;
     }
 
-    setState(() => _yukleniyor = true);
-    bool basarili = await KimlikServisi.girisYap(email, sifre, isletmeModu);
-    setState(() => _yukleniyor = false);
+    setState(() => _yukleniyor = true); // Çark dönsün
+
+    // GERÇEK SUNUCUYA İSTEK ATIYORUZ
+    bool basarili = await ApiServisi.girisYap(
+      _emailController.text.trim(),
+      _sifreController.text.trim(),
+      isletmeModu
+    );
+
+    setState(() => _yukleniyor = false); // Çark dursun
 
     if (basarili) {
       if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AnasayfaEkrani()));
     } else {
-      _hataGoster("Giriş başarısız! Bilgileri kontrol edin.");
+      _mesajGoster("Giriş Başarısız! Sunucu kapalı olabilir.", kirmizi: true);
     }
   }
 
+  // --- KAYIT OL BUTONUNA BASINCA ---
   void _kayitOl() async {
-    String isim = _kayitIsimController.text.trim();
-    String email = _kayitEmailController.text.trim();
-    String sifre = _kayitSifreController.text.trim();
-
-    if (isim.isEmpty || email.isEmpty || sifre.isEmpty) {
-      _hataGoster("Lütfen zorunlu alanları doldurun.");
+    if (_kayitIsimController.text.isEmpty || _kayitEmailController.text.isEmpty || _kayitSifreController.text.isEmpty) {
+      _mesajGoster("Eksik bilgi girdiniz", kirmizi: true);
       return;
     }
 
     setState(() => _yukleniyor = true);
-    bool basarili = await KimlikServisi.kayitOl(isim, email, sifre, isletmeModu);
+
+    bool basarili = await ApiServisi.kayitOl(
+      _kayitIsimController.text.trim(),
+      _kayitEmailController.text.trim(),
+      _kayitSifreController.text.trim(),
+      isletmeModu
+    );
+
     setState(() => _yukleniyor = false);
 
     if (basarili) {
-      if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AnasayfaEkrani()));
+      _mesajGoster("Kayıt Başarılı! Şimdi giriş yapabilirsin.");
+      _tabController.animateTo(0); // Giriş sekmesine geç
     } else {
-      _hataGoster("Kayıt olunamadı. E-posta kullanımda olabilir.");
+      _mesajGoster("Kayıt olunamadı.", kirmizi: true);
     }
   }
 
-  void _hataGoster(String mesaj) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mesaj), backgroundColor: Colors.red));
+  void _mesajGoster(String mesaj, {bool kirmizi = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mesaj), backgroundColor: kirmizi ? Colors.red : Colors.green));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        width: double.infinity,
-        height: double.infinity,
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFF0FDF4), Color(0xFFEFF6FF)],
-          ),
+          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFFF0FDF4), Color(0xFFEFF6FF)]),
         ),
         child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 60.0),
-            child: Column(
-              children: [
-                const SizedBox(height: 50),
-                
-                // --- 1. TOP ANİMASYONU ---
-                AnimatedBuilder(
-                  animation: _topDusmeAnimasyonu,
-                  builder: (context, child) {
-                    // Gölge Opaklığı Hesaplama: Top havada iken gölge silik, yere inince koyu
-                    double golgeOpaklik = 1.0 - (_topDusmeAnimasyonu.value.abs() / 350);
-                    golgeOpaklik = golgeOpaklik.clamp(0.0, 0.3); // Max gölge %30
-
-                    return Transform.translate(
-                      offset: Offset(0, _topDusmeAnimasyonu.value),
-                      child: Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.green.withOpacity(golgeOpaklik), // Dinamik gölge
-                              blurRadius: 20 + (golgeOpaklik * 10), // Gölge boyutu da değişiyor
-                              spreadRadius: 2,
-                              offset: const Offset(0, 10),
-                            )
-                          ],
-                        ),
-                        child: const Icon(Icons.sports_soccer, size: 64, color: Color(0xFF22C55E)),
-                      ),
-                    );
-                  },
-                ),
-                
-                const SizedBox(height: 30),
-                
-                // --- 2. İÇERİK ANİMASYONU ---
-                FadeTransition(
-                  opacity: _icerikOpaklik,
-                  child: SlideTransition(
-                    position: _icerikKayma,
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 60),
+          child: Column(
+            children: [
+              const SizedBox(height: 50),
+              // Animasyonlu Top
+              AnimatedBuilder(
+                animation: _topDusmeAnimasyonu,
+                builder: (context, child) => Transform.translate(offset: Offset(0, _topDusmeAnimasyonu.value), child: const Icon(Icons.sports_soccer, size: 80, color: Color(0xFF22C55E))),
+              ),
+              const SizedBox(height: 30),
+              // İçerik
+              FadeTransition(
+                opacity: _icerikOpaklik,
+                child: SlideTransition(
+                  position: _icerikKayma,
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20)]),
                     child: Column(
                       children: [
-                        const Text("eHalısaha", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Color(0xFF1F2937))),
-                        const SizedBox(height: 8),
-                        Text(isletmeModu ? "İşletme Yönetim Paneli" : "Saha Bul, Kirala, Oyna!", style: const TextStyle(color: Color(0xFF6B7280), fontSize: 16)),
-                        
-                        const SizedBox(height: 40),
-
-                        Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
-                          ),
-                          child: Column(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(color: const Color(0xFFF3F4F6), borderRadius: BorderRadius.circular(12)),
-                                child: Row(
-                                  children: [
-                                    _modSecici("Oyuncu", !isletmeModu, () => setState(() => isletmeModu = false)),
-                                    _modSecici("İşletme", isletmeModu, () => setState(() => isletmeModu = true)),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                              TabBar(
-                                controller: _tabController,
-                                labelColor: const Color(0xFF22C55E),
-                                unselectedLabelColor: const Color(0xFF6B7280),
-                                indicatorColor: const Color(0xFF22C55E),
-                                dividerColor: Colors.transparent,
-                                tabs: const [Tab(text: "Giriş Yap"), Tab(text: "Kayıt Ol")],
-                              ),
-                              const SizedBox(height: 24),
-                              SizedBox(
-                                height: 320,
-                                child: TabBarView(
-                                  controller: _tabController,
-                                  children: [_girisFormu(), _kayitFormu()],
-                                ),
-                              ),
-                            ],
+                        // Rol Seçici
+                        Row(children: [_rolButonu("Oyuncu", !isletmeModu), _rolButonu("İşletme", isletmeModu)]),
+                        const SizedBox(height: 20),
+                        // Tablar (Giriş / Kayıt)
+                        TabBar(
+                          controller: _tabController,
+                          labelColor: Colors.green,
+                          unselectedLabelColor: Colors.grey,
+                          indicatorColor: Colors.green,
+                          tabs: const [Tab(text: "Giriş Yap"), Tab(text: "Kayıt Ol")],
+                        ),
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          height: 300,
+                          child: TabBarView(
+                            controller: _tabController,
+                            children: [_girisFormu(), _kayitFormu()],
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _modSecici(String yazi, bool aktif, VoidCallback tikla) {
+  Widget _rolButonu(String text, bool active) {
     return Expanded(
       child: GestureDetector(
-        onTap: tikla,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: aktif ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-            boxShadow: aktif ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4)] : [],
-          ),
-          child: Text(yazi, style: TextStyle(color: aktif ? const Color(0xFF111827) : const Color(0xFF6B7280), fontWeight: FontWeight.w600)),
+        onTap: () => setState(() => isletmeModu = text == "İşletme"),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(color: active ? Colors.green[50] : Colors.transparent, borderRadius: BorderRadius.circular(8)),
+          child: Text(text, textAlign: TextAlign.center, style: TextStyle(color: active ? Colors.green : Colors.grey, fontWeight: FontWeight.bold)),
         ),
       ),
     );
@@ -275,73 +182,26 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
   Widget _girisFormu() {
     return Column(
       children: [
-        TextField(controller: _emailController, decoration: const InputDecoration(hintText: "E-Posta Adresi", prefixIcon: Icon(Icons.mail_outline))),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _sifreController, 
-          obscureText: _girisSifreGizli, 
-          decoration: InputDecoration(
-            hintText: "Şifre", 
-            prefixIcon: const Icon(Icons.lock_outline),
-            suffixIcon: IconButton(
-              // DÜZELTME BURADA: Gizliyse (True) -> Göz Kapalı (Off), Açıksa -> Göz Açık
-              icon: Icon(_girisSifreGizli ? Icons.visibility_off : Icons.visibility),
-              onPressed: () => setState(() => _girisSifreGizli = !_girisSifreGizli),
-            )
-          )
-        ),
+        TextField(controller: _emailController, decoration: const InputDecoration(hintText: "E-Posta", prefixIcon: Icon(Icons.email_outlined))),
+        const SizedBox(height: 15),
+        TextField(controller: _sifreController, obscureText: _girisSifreGizli, decoration: InputDecoration(hintText: "Şifre", prefixIcon: const Icon(Icons.lock_outline), suffixIcon: IconButton(icon: Icon(_girisSifreGizli ? Icons.visibility_off : Icons.visibility), onPressed: () => setState(() => _girisSifreGizli = !_girisSifreGizli)))),
         const Spacer(),
-        _yukleniyor ? const CircularProgressIndicator(color: Color(0xFF22C55E)) : _anaButon("GİRİŞ YAP", _girisYap),
+        _yukleniyor ? const CircularProgressIndicator() : ElevatedButton(onPressed: _girisYap, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF22C55E), minimumSize: const Size(double.infinity, 50)), child: const Text("GİRİŞ YAP", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
       ],
     );
   }
 
   Widget _kayitFormu() {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          TextField(controller: _kayitIsimController, decoration: InputDecoration(hintText: isletmeModu ? "İşletme Adı" : "Ad Soyad", prefixIcon: const Icon(Icons.person_outline))),
-          const SizedBox(height: 16),
-          TextField(controller: _kayitEmailController, decoration: const InputDecoration(hintText: "E-Posta", prefixIcon: Icon(Icons.mail_outline))),
-          const SizedBox(height: 16),
-          TextField(
-            controller: _kayitSifreController, 
-            obscureText: _kayitSifreGizli,
-            decoration: InputDecoration(
-              hintText: "Şifre", 
-              prefixIcon: const Icon(Icons.lock_outline),
-              suffixIcon: IconButton(
-                // DÜZELTME BURADA DA YAPILDI
-                icon: Icon(_kayitSifreGizli ? Icons.visibility_off : Icons.visibility),
-                onPressed: () => setState(() => _kayitSifreGizli = !_kayitSifreGizli),
-              )
-            )
-          ),
-          if (isletmeModu) ...[
-            const SizedBox(height: 16),
-            TextField(controller: _kayitKonumController, decoration: const InputDecoration(hintText: "Konum (İl/İlçe)", prefixIcon: Icon(Icons.location_on_outlined))),
-          ],
-          const SizedBox(height: 24),
-          _yukleniyor ? const CircularProgressIndicator(color: Color(0xFF22C55E)) : _anaButon("KAYIT OL", _kayitOl),
-        ],
-      ),
-    );
-  }
-
-  Widget _anaButon(String yazi, VoidCallback tikla) {
-    return SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF22C55E),
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          elevation: 0,
-        ),
-        onPressed: tikla,
-        child: Text(yazi, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-      ),
+    return Column(
+      children: [
+        TextField(controller: _kayitIsimController, decoration: const InputDecoration(hintText: "Ad Soyad", prefixIcon: Icon(Icons.person_outline))),
+        const SizedBox(height: 10),
+        TextField(controller: _kayitEmailController, decoration: const InputDecoration(hintText: "E-Posta", prefixIcon: Icon(Icons.email_outlined))),
+        const SizedBox(height: 10),
+        TextField(controller: _kayitSifreController, obscureText: _kayitSifreGizli, decoration: InputDecoration(hintText: "Şifre", prefixIcon: const Icon(Icons.lock_outline), suffixIcon: IconButton(icon: Icon(_kayitSifreGizli ? Icons.visibility_off : Icons.visibility), onPressed: () => setState(() => _kayitSifreGizli = !_kayitSifreGizli)))),
+        const Spacer(),
+        _yukleniyor ? const CircularProgressIndicator() : ElevatedButton(onPressed: _kayitOl, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF22C55E), minimumSize: const Size(double.infinity, 50)), child: const Text("KAYIT OL", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+      ],
     );
   }
 }
