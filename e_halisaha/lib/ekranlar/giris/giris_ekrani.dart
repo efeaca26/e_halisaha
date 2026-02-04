@@ -18,7 +18,7 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
 
   late TabController _tabController;
   bool isletmeModu = false;
-  bool _yukleniyor = false; // Yükleniyor çarkı için
+  bool _yukleniyor = false; 
   
   bool _girisSifreGizli = true; 
   bool _kayitSifreGizli = true; 
@@ -34,7 +34,6 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
 
-    // --- ANİMASYON AYARLARI ---
     _topKontrolcusu = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000));
     _topDusmeAnimasyonu = Tween<double>(begin: -350, end: 0).animate(CurvedAnimation(parent: _topKontrolcusu, curve: Curves.bounceOut));
 
@@ -52,23 +51,21 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
     _icerikKontrolcusu.forward(); 
   }
 
-  // --- GİRİŞ YAP BUTONUNA BASINCA ---
   void _girisYap() async {
     if (_emailController.text.isEmpty || _sifreController.text.isEmpty) {
       _mesajGoster("Lütfen alanları doldurun", kirmizi: true);
       return;
     }
 
-    setState(() => _yukleniyor = true); // Çark dönsün
+    setState(() => _yukleniyor = true);
 
-    // GERÇEK SUNUCUYA İSTEK ATIYORUZ
     bool basarili = await ApiServisi.girisYap(
       _emailController.text.trim(),
       _sifreController.text.trim(),
       isletmeModu
     );
 
-    setState(() => _yukleniyor = false); // Çark dursun
+    setState(() => _yukleniyor = false);
 
     if (basarili) {
       if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AnasayfaEkrani()));
@@ -77,7 +74,6 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
     }
   }
 
-  // --- KAYIT OL BUTONUNA BASINCA ---
   void _kayitOl() async {
     if (_kayitIsimController.text.isEmpty || _kayitEmailController.text.isEmpty || _kayitSifreController.text.isEmpty) {
       _mesajGoster("Eksik bilgi girdiniz", kirmizi: true);
@@ -97,7 +93,7 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
 
     if (basarili) {
       _mesajGoster("Kayıt Başarılı! Şimdi giriş yapabilirsin.");
-      _tabController.animateTo(0); // Giriş sekmesine geç
+      _tabController.animateTo(0);
     } else {
       _mesajGoster("Kayıt olunamadı.", kirmizi: true);
     }
@@ -119,13 +115,39 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
           child: Column(
             children: [
               const SizedBox(height: 50),
-              // Animasyonlu Top
+              
+              // --- TOP ANİMASYONU ---
               AnimatedBuilder(
                 animation: _topDusmeAnimasyonu,
                 builder: (context, child) => Transform.translate(offset: Offset(0, _topDusmeAnimasyonu.value), child: const Icon(Icons.sports_soccer, size: 80, color: Color(0xFF22C55E))),
               ),
+              
+              const SizedBox(height: 20),
+
+              // --- ✅ YENİ EKLENEN BAŞLIK KISMI ---
+              const Text(
+                "e-Halisaha",
+                style: TextStyle(
+                  fontSize: 32, 
+                  fontWeight: FontWeight.bold, 
+                  color: Color(0xFF2E7D32), // Koyu Yeşil
+                  letterSpacing: 1.5,
+                ),
+              ),
+              const SizedBox(height: 5),
+              const Text(
+                "Maçın Adresi",
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+              // ------------------------------------
+
               const SizedBox(height: 30),
-              // İçerik
+              
+              // --- GİRİŞ KUTUSU ---
               FadeTransition(
                 opacity: _icerikOpaklik,
                 child: SlideTransition(
@@ -135,10 +157,8 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
                     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20)]),
                     child: Column(
                       children: [
-                        // Rol Seçici
                         Row(children: [_rolButonu("Oyuncu", !isletmeModu), _rolButonu("İşletme", isletmeModu)]),
                         const SizedBox(height: 20),
-                        // Tablar (Giriş / Kayıt)
                         TabBar(
                           controller: _tabController,
                           labelColor: Colors.green,
