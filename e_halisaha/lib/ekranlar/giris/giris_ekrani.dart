@@ -23,10 +23,12 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
   bool _girisSifreGizli = true; 
   bool _kayitSifreGizli = true; 
 
-  final _emailController = TextEditingController();
+  // ARTIK HEM EMAIL HEM TELEFON GİREBİLİR
+  final _girisController = TextEditingController(); // İsmini değiştirdik
   final _sifreController = TextEditingController();
+  
   final _kayitIsimController = TextEditingController();
-  final _kayitEmailController = TextEditingController();
+  final _kayitTelefonController = TextEditingController();
   final _kayitSifreController = TextEditingController();
 
   @override
@@ -52,17 +54,17 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
   }
 
   void _girisYap() async {
-    if (_emailController.text.isEmpty || _sifreController.text.isEmpty) {
+    if (_girisController.text.isEmpty || _sifreController.text.isEmpty) {
       _mesajGoster("Lütfen alanları doldurun", kirmizi: true);
       return;
     }
 
     setState(() => _yukleniyor = true);
 
+    // E-POSTA VEYA TELEFON FARK ETMEZ, SERVİS HALLEDECEK
     bool basarili = await ApiServisi.girisYap(
-      _emailController.text.trim(),
-      _sifreController.text.trim(),
-      isletmeModu
+      _girisController.text.trim(),
+      _sifreController.text.trim()
     );
 
     setState(() => _yukleniyor = false);
@@ -70,12 +72,12 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
     if (basarili) {
       if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AnasayfaEkrani()));
     } else {
-      _mesajGoster("Giriş Başarısız! Sunucu kapalı olabilir.", kirmizi: true);
+      _mesajGoster("Giriş Başarısız! Bilgilerinizi kontrol edin.", kirmizi: true);
     }
   }
 
   void _kayitOl() async {
-    if (_kayitIsimController.text.isEmpty || _kayitEmailController.text.isEmpty || _kayitSifreController.text.isEmpty) {
+    if (_kayitIsimController.text.isEmpty || _kayitTelefonController.text.isEmpty || _kayitSifreController.text.isEmpty) {
       _mesajGoster("Eksik bilgi girdiniz", kirmizi: true);
       return;
     }
@@ -84,7 +86,7 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
 
     bool basarili = await ApiServisi.kayitOl(
       _kayitIsimController.text.trim(),
-      _kayitEmailController.text.trim(),
+      _kayitTelefonController.text.trim(), // Kayıtta hala telefon zorunlu
       _kayitSifreController.text.trim(),
       isletmeModu
     );
@@ -116,7 +118,6 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
             children: [
               const SizedBox(height: 50),
               
-              // --- TOP ANİMASYONU ---
               AnimatedBuilder(
                 animation: _topDusmeAnimasyonu,
                 builder: (context, child) => Transform.translate(offset: Offset(0, _topDusmeAnimasyonu.value), child: const Icon(Icons.sports_soccer, size: 80, color: Color(0xFF22C55E))),
@@ -124,30 +125,18 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
               
               const SizedBox(height: 20),
 
-              // --- ✅ YENİ EKLENEN BAŞLIK KISMI ---
               const Text(
                 "e-Halisaha",
-                style: TextStyle(
-                  fontSize: 32, 
-                  fontWeight: FontWeight.bold, 
-                  color: Color(0xFF2E7D32), // Koyu Yeşil
-                  letterSpacing: 1.5,
-                ),
+                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32), letterSpacing: 1.5),
               ),
               const SizedBox(height: 5),
               const Text(
                 "Maçın Adresi",
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.grey,
-                  fontStyle: FontStyle.italic,
-                ),
+                style: TextStyle(fontSize: 16, color: Colors.grey, fontStyle: FontStyle.italic),
               ),
-              // ------------------------------------
 
               const SizedBox(height: 30),
               
-              // --- GİRİŞ KUTUSU ---
               FadeTransition(
                 opacity: _icerikOpaklik,
                 child: SlideTransition(
@@ -199,10 +188,18 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
     );
   }
 
+  // --- GÜNCELLENMİŞ GİRİŞ FORMU ---
   Widget _girisFormu() {
     return Column(
       children: [
-        TextField(controller: _emailController, decoration: const InputDecoration(hintText: "E-Posta", prefixIcon: Icon(Icons.email_outlined))),
+        TextField(
+          controller: _girisController, 
+          keyboardType: TextInputType.emailAddress, // Hem @ hem rakam için en uygun klavye
+          decoration: const InputDecoration(
+            hintText: "E-Posta veya Telefon", // Kullanıcıya ipucu
+            prefixIcon: Icon(Icons.person_outline) // Daha genel bir ikon
+          )
+        ),
         const SizedBox(height: 15),
         TextField(controller: _sifreController, obscureText: _girisSifreGizli, decoration: InputDecoration(hintText: "Şifre", prefixIcon: const Icon(Icons.lock_outline), suffixIcon: IconButton(icon: Icon(_girisSifreGizli ? Icons.visibility_off : Icons.visibility), onPressed: () => setState(() => _girisSifreGizli = !_girisSifreGizli)))),
         const Spacer(),
@@ -216,7 +213,11 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
       children: [
         TextField(controller: _kayitIsimController, decoration: const InputDecoration(hintText: "Ad Soyad", prefixIcon: Icon(Icons.person_outline))),
         const SizedBox(height: 10),
-        TextField(controller: _kayitEmailController, decoration: const InputDecoration(hintText: "E-Posta", prefixIcon: Icon(Icons.email_outlined))),
+        TextField(
+          controller: _kayitTelefonController, 
+          keyboardType: TextInputType.phone,
+          decoration: const InputDecoration(hintText: "Telefon (05xxxxxxxxx)", prefixIcon: Icon(Icons.phone_iphone))
+        ),
         const SizedBox(height: 10),
         TextField(controller: _kayitSifreController, obscureText: _kayitSifreGizli, decoration: InputDecoration(hintText: "Şifre", prefixIcon: const Icon(Icons.lock_outline), suffixIcon: IconButton(icon: Icon(_kayitSifreGizli ? Icons.visibility_off : Icons.visibility), onPressed: () => setState(() => _kayitSifreGizli = !_kayitSifreGizli)))),
         const Spacer(),

@@ -2,65 +2,99 @@
 
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'kimlik_servisi.dart';
 
 class ApiServisi {
+  // Karşı tarafın API adresi
   static const String _baseUrl = "http://185.157.46.167/api"; 
 
+  // --- YARDIMCI: Header Üretici (Token Ekler) ---
+  static Future<Map<String, String>> _headerGetir() async {
+    String? token = await KimlikServisi.tokenGetir();
+    return {
+      "Content-Type": "application/json",
+      if (token != null) "Authorization": "Bearer $token", // İşte "Kutsal" kısım burası!
+    };
+  }
+
   // --- GİRİŞ YAP ---
-  static Future<bool> girisYap(String email, String sifre, bool isletmeModu) async {
+  static Future<bool> girisYap(String girisBilgisi, String sifre) async {
     try {
-      final url = Uri.parse('$_baseUrl/auth/giris'); 
+      final url = Uri.parse('$_baseUrl/auth/login');
       
-      print("İstek gönderiliyor: $url"); 
+      // Giriş verisini hazırla
+      Map<String, dynamic> bodyVerisi = {"password": sifre};
+      if (girisBilgisi.contains('@')) {
+        bodyVerisi['email'] = girisBilgisi;
+      } else {
+        bodyVerisi['phone'] = girisBilgisi;
+      }
 
       final cevap = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "email": email,
-          "sifre": sifre,
-          "rol": isletmeModu ? "isletme" : "oyuncu",
-        }),
+        body: jsonEncode(bodyVerisi),
       );
 
-      print("Sunucu Cevabı: ${cevap.statusCode} - ${cevap.body}");
-
       if (cevap.statusCode == 200) {
-        return true; 
-      } else {
-        return false; 
+        final veri = jsonDecode(cevap.body);
+        if (veri['success'] == true) {
+          // ✅ YENİ: Token'ı telefona kaydediyoruz
+          await KimlikServisi.girisYapveKaydet(veri);
+          return true;
+        }
       }
+      return false;
     } catch (e) {
-      print("Bağlantı Hatası: $e");
-      return false; 
+      print("Giriş Hatası: $e");
+      return false;
     }
   }
 
-  // --- KAYIT OL ---
-  static Future<bool> kayitOl(String isim, String email, String sifre, bool isletmeModu) async {
+  // --- KAYIT OL (Değişiklik yok) ---
+  static Future<bool> kayitOl(String adSoyad, String telefon, String sifre, bool isletmeModu) async {
     try {
-      final url = Uri.parse('$_baseUrl/auth/kayit');
-      
+      final url = Uri.parse('$_baseUrl/auth/register');
       final cevap = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          "adSoyad": isim,
-          "email": email,
-          "sifre": sifre,
-          "rol": isletmeModu ? "isletme" : "oyuncu",
+          "fullName": adSoyad,
+          "phone": telefon,
+          "password": sifre,
+          "role": isletmeModu ? "SahaSahibi" : "User"
         }),
       );
-
-      if (cevap.statusCode == 200) {
-        return true;
-      } else {
-        print("Kayıt Hatası: ${cevap.body}");
-        return false;
+      
+      if (cevap.statusCode == 201 || cevap.statusCode == 200) {
+        final veri = jsonDecode(cevap.body);
+        return veri['success'] == true;
       }
+      return false;
     } catch (e) {
-      print("Kayıt Bağlantı Hatası: $e");
+      print("Kayıt Hatası: $e");
       return false;
     }
+  }
+
+  // --- ÖRNEK: PROFİL GETİR (Token Kullanımı) ---
+  // İleride profil sayfasını yaparken bunu kullanacaksın
+  static Future<Map<String, dynamic>?> profilGetir() async {
+    try {
+      final url = Uri.parse('$_baseUrl/auth/profile');
+      
+      // Token'lı header alıyoruz
+      final headers = await _headerGetir(); 
+
+      final cevap = await http.get(url, headers: headers);
+
+      if (cevap.statusCode == 200) {
+         final veri = jsonDecode(cevap.body);
+         return veri['data'];
+      }
+    } catch (e) {
+      print("Profil Hatası: $e");
+    }
+    return null;
   }
 }
