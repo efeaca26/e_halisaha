@@ -1,18 +1,17 @@
+// ignore_for_file: avoid_print
+
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ApiServisi {
-  // 🔴 ÖNEMLİ: Buraya kiraladığın VDS'in IP adresini yazacaksın.
-  // Örnek: "http://195.142.10.20/api"
-  // API henüz kurulu olmadığı için burası şimdilik çalışmaz ama hazırlık tamam.
-  static const String _baseUrl = "http://SENIN_SUNUCU_IP_ADRESIN/api";
+  static const String _baseUrl = "http://185.157.46.167/api"; 
 
-  // --- GİRİŞ YAPMA İŞLEMİ ---
+  // --- GİRİŞ YAP ---
   static Future<bool> girisYap(String email, String sifre, bool isletmeModu) async {
     try {
-      final url = Uri.parse('$_baseUrl/auth/giris');
+      final url = Uri.parse('$_baseUrl/auth/giris'); 
       
-      print("İstek gönderiliyor: $url"); // Konsolda görmek için
+      print("İstek gönderiliyor: $url"); 
 
       final cevap = await http.post(
         url,
@@ -27,18 +26,17 @@ class ApiServisi {
       print("Sunucu Cevabı: ${cevap.statusCode} - ${cevap.body}");
 
       if (cevap.statusCode == 200) {
-        return true; // Giriş Başarılı
+        return true; 
       } else {
-        return false; // Şifre yanlış veya kullanıcı yok
+        return false; 
       }
     } catch (e) {
       print("Bağlantı Hatası: $e");
-      // Sunucu kapalıysa veya internet yoksa buraya düşer
       return false; 
     }
   }
 
-  // --- KAYIT OLMA İŞLEMİ ---
+  // --- KAYIT OL ---
   static Future<bool> kayitOl(String isim, String email, String sifre, bool isletmeModu) async {
     try {
       final url = Uri.parse('$_baseUrl/auth/kayit');
@@ -57,10 +55,11 @@ class ApiServisi {
       if (cevap.statusCode == 200) {
         return true;
       } else {
+        print("Kayıt Hatası: ${cevap.body}");
         return false;
       }
     } catch (e) {
-      print("Kayıt Hatası: $e");
+      print("Kayıt Bağlantı Hatası: $e");
       return false;
     }
   }
