@@ -6,7 +6,7 @@ import 'kimlik_servisi.dart';
 
 class ApiServisi {
   // Karşı tarafın API adresi
-  static const String _baseUrl = "http://185.157.46.167/api"; 
+  static const String _baseUrl = "http://api.ehalisaha.com.tr"; 
 
   // --- YARDIMCI: Header Üretici (Token Ekler) ---
   static Future<Map<String, String>> _headerGetir() async {
