@@ -25,7 +25,7 @@ class _AdminAnaSayfaState extends State<AdminAnaSayfa> {
     return Scaffold(
       key: _refreshKey,
       appBar: AppBar(
-        title: const Text("SÜPER ADMİN PANELİ", 
+        title: const Text("🛡️ ADMİN PANELİ", 
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.red[800],
         actions: [

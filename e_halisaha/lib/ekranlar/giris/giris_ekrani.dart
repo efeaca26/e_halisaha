@@ -4,6 +4,7 @@ import '../../cekirdek/servisler/api_servisi.dart';
 import '../../cekirdek/servisler/kimlik_servisi.dart';
 import '../anasayfa/anasayfa_ekrani.dart';
 import '../admin/admin_ana_sayfa.dart'; 
+import '../isletme/isletme_ana_sayfa.dart';
 
 class GirisEkrani extends StatefulWidget {
   const GirisEkrani({super.key});
@@ -163,7 +164,8 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
 
 //   }
 
-  // --- GİRİŞ YAP (DEBUG VE FİXLENMİŞ VERSİYON) ---
+  // --- GİRİŞ YAP (DEBUG VERSİYON) ---
+
   void _girisYap() async {
     if (_girisController.text.isEmpty || _sifreController.text.isEmpty) {
       _mesajGoster("Lütfen alanları doldurun", kirmizi: true);
@@ -175,8 +177,7 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
     print("--------------------------------------------------");
     print("🚀 GİRİŞ İŞLEMİ BAŞLATILIYOR...");
     print("📧 Email: ${_girisController.text.trim()}");
-    print("🔑 Şifre: ${_sifreController.text.trim()}");
-
+    
     try {
       // 1. API İsteği
       bool basarili = await _apiServisi.girisYap(
@@ -189,47 +190,59 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
       if (basarili) {
         print("✅ API 'Başarılı' döndü.");
         
-        // Değişkeni burada tanımlıyoruz
-        var aktifKullanici = KimlikServisi.aktifKullanici;
+        // Verileri tazelemek için KimlikServisinden tekrar okuyalım
+        var aktifKullanici = await KimlikServisi.kullaniciGetir();
 
         // 2. Kimlik Servisine Ne Kaydedildi?
-        print("Admin Yetkisi Var Mı?: ${KimlikServisi.isAdmin}");
-        
         print("🔍 KİMLİK SERVİSİ İNCELENİYOR:");
+        
         if (aktifKullanici != null) {
-          print("👤 İsim: ${aktifKullanici['isim']}");
-          print("🆔 ID: ${aktifKullanici['id']}");
-          // Hem 'role' hem 'rol' kontrolü (Debug için)
-          print("🎭 ROL (role): '${aktifKullanici['role']}'"); 
-          print("🎭 ROL (rol): '${aktifKullanici['rol']}'"); 
+          print("👤 İsim: ${aktifKullanici['fullName']}");
+          print("🆔 ID: ${aktifKullanici['userId'] ?? aktifKullanici['id']}");
+          
+          // Rol Kontrolü
+          String rol = aktifKullanici['role'] ?? 'oyuncu';
+          print("🎭 ROL: '$rol'"); 
+
+          if (mounted) {
+            // --- KESİN YÖNLENDİRME (3 YOL) ---
+            
+            if (rol == 'admin') {
+              print("🛑 KARAR: SÜPER ADMİN PANELİNE GİDİLİYOR...");
+              Navigator.pushReplacement(
+                context, 
+                MaterialPageRoute(builder: (context) => const AdminAnaSayfa())
+              );
+            } 
+            else if (rol == 'isletme' || rol == 'sahasahibi') {
+              print("🏟️ KARAR: İŞLETME (SAHA) PANELİNE GİDİLİYOR...");
+              // İşletme sayfasına kullanıcı verisini gönderiyoruz
+              Navigator.pushReplacement(
+                context, 
+                MaterialPageRoute(builder: (context) => IsletmeAnaSayfa(kullanici: aktifKullanici))
+              );
+            } 
+            else {
+              print("🏃 KARAR: OYUNCU SAYFASINA GİDİLİYOR...");
+              Navigator.pushReplacement(
+                context, 
+                MaterialPageRoute(builder: (context) => const AnasayfaEkrani())
+              );
+            }
+          }
         } else {
-          print("❌ HATA: Aktif Kullanıcı NULL!");
+          print("❌ HATA: Aktif Kullanıcı NULL! Kayıt okunamadı.");
+          _mesajGoster("Kullanıcı verisi okunamadı.", kirmizi: true);
         }
 
-        if (mounted) {
-          // --- KESİN YÖNLENDİRME ---
-          // String karmaşasına girmeden doğrudan getter kullanıyoruz
-          if (KimlikServisi.isAdmin) {
-            print("🛑 KARAR: YÖNETİCİ PANELİNE GİDİLİYOR...");
-            Navigator.pushReplacement(
-              context, 
-              MaterialPageRoute(builder: (context) => AdminAnaSayfa())
-            );
-          } else {
-            print("🏃 KARAR: OYUNCU SAYFASINA GİDİLİYOR...");
-            Navigator.pushReplacement(
-              context, 
-              MaterialPageRoute(builder: (context) => const AnasayfaEkrani())
-            );
-          }
-        }
       } else {
         print("❌ API 'Başarısız' döndü.");
         _mesajGoster("Giriş Başarısız! E-posta veya şifre hatalı.", kirmizi: true);
       }
     } catch (e) {
-       print("💥 BÜYÜK HATA: $e");
+       print("❌ BÜYÜK HATA: $e");
        setState(() => _yukleniyor = false);
+       _mesajGoster("Bir hata oluştu: $e", kirmizi: true);
     }
     print("--------------------------------------------------");
   }
