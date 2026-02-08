@@ -143,6 +143,17 @@ class ApiServisi {
     return [];
   }
 
+  // --- SAHA SİLME ---
+  Future<bool> sahaSil(int id) async {
+    try {
+      final response = await http.delete(Uri.parse('$_baseUrl/Pitches/$id'));
+      // 204 No Content veya 200 OK başarılı demektir
+      return response.statusCode == 204 || response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+
   Future<bool> rezervasyonYap(int sahaId, int userId, DateTime tarih, int saat, String notlar) async {
     try {
       final response = await http.post(
