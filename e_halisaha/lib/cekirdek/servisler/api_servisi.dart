@@ -1,297 +1,174 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'kimlik_servisi.dart'; // Kimlik servisi importu şart
 
 class ApiServisi {
-  // 1. Emülatör için Adres (Port: 5216)
+  // Emülatör için 10.0.2.2, Port: 5216 (Senin verdiğin)
   static const String _baseUrl = "http://10.0.2.2:5216/api";
 
   // --- GİRİŞ YAP ---
-  // Backend'deki Users/Login endpoint'ine gider
-  Future<Map<String, dynamic>?> girisYap(String email, String password) async {
+  Future<bool> girisYap(String email, String password) async {
     try {
       final url = Uri.parse('$_baseUrl/Users/Login');
-
+      
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "email": email,
-          "password": password, // Backend'de LoginRequest modelinde "Password" demiştik
+          "password": password,
         }),
       );
 
       if (response.statusCode == 200) {
-        // Başarılı: { "message": "...", "userId": 1, ... } döner
-        return jsonDecode(response.body);
-      } else {
-        print("Giriş Başarısız: ${response.body}");
-        return null;
+        final data = jsonDecode(response.body);
+        // Token ve kullanıcı bilgilerini telefona kaydet
+        await KimlikServisi.girisYapveKaydet(data);
+        return true;
       }
+      return false;
     } catch (e) {
       print("Giriş Hatası: $e");
-      return null;
+      return false;
     }
   }
 
   // --- KAYIT OL ---
-  // Backend'deki Users tablosuna yeni kayıt ekler (POST)
-  Future<bool> kayitOl(String adSoyad, String email, String sifre, String telefon) async {
+  Future<bool> kayitOl(String adSoyad, String telefon, String sifre, bool isletmeMi) async {
     try {
-      // Otomatik oluşturulan UsersController direkt bu adresi dinler
-      final url = Uri.parse('$_baseUrl/Users'); 
-
+      final url = Uri.parse('$_baseUrl/Users');
+      
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          "fullName": adSoyad,       // C# Modelindeki isimle aynı olmalı
-          "email": email,
-          "passwordHash": sifre,     // C#'ta veritabanında bu isimle tutuyoruz
-          "phoneNumber": telefon
+          "fullName": adSoyad,
+          "email": "$telefon@ehali.com", // E-posta yerine telefon formatı
+          "passwordHash": sifre,
+          "phoneNumber": telefon,
+          "role": isletmeMi ? "isletme" : "oyuncu",
+          "createdAt": DateTime.now().toIso8601String()
         }),
       );
 
-      // 201: Created (Oluşturuldu) demektir
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        return true;
-      }
-      
-      print("Kayıt Başarısız: ${response.body}");
-      return false;
+      return response.statusCode == 201 || response.statusCode == 200;
     } catch (e) {
       print("Kayıt Hatası: $e");
       return false;
     }
   }
+
+  // --- DİĞER METOTLAR ---
+
   Future<List<dynamic>> sahalariGetir() async {
     try {
-      final url = Uri.parse('$_baseUrl/Pitches');
-      final response = await http.get(url);
-
-      if (response.statusCode == 200) {
-        // Gelen JSON listesini döndür
-        return jsonDecode(response.body);
-      } else {
-        print("Saha Çekme Hatası: ${response.statusCode}");
-        return [];
-      }
-    } catch (e) {
-      print("Bağlantı Hatası: $e");
-      return [];
-    }
-  }
-  // --- REZERVASYON YAP (KAYIT) ---
-  // POST: api/Reservations
-  Future<bool> rezervasyonYap(int sahaId, int userId, DateTime tarih, int saat, String notlar) async {
-    try {
-      final url = Uri.parse('$_baseUrl/Reservations');
-      
-      final bodyData = jsonEncode({
-        "pitchId": sahaId,
-        "userId": userId,
-        "rezDate": tarih.toIso8601String(),
-        "rezHour": saat, // Sadece saati (örn: 19) gönderiyoruz
-        "note": notlar,
-        "status": 1 // 1: Onaylı varsayalım
-      });
-
-      final response = await http.post(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: bodyData,
-      );
-
-      if (response.statusCode == 201 || response.statusCode == 200) {
-        return true;
-      } else {
-        print("Rezervasyon Hatası: ${response.body}");
-        return false;
-      }
-    } catch (e) {
-      print("Bağlantı Hatası: $e");
-      return false;
-    }
-  }
-
-  // GET: api/Reservations
-  Future<List<int>> doluSaatleriGetir(int sahaId, DateTime tarih) async {
-    try {
-      // Şimdilik tüm rezervasyonları çekip içeride filtreliyoruz.
-      // İleride backend'e "?pitchId=1" gibi filtre eklenirse daha iyi olur.
-      final url = Uri.parse('$_baseUrl/Reservations');
-      final response = await http.get(url);
-
-      if (response.statusCode == 200) {
-        List<dynamic> tumRezervasyonlar = jsonDecode(response.body);
-        List<int> doluSaatler = [];
-
-        // Seçilen tarih formatı (Yıl-Ay-Gün)
-        String secilenTarihStr = tarih.toIso8601String().split('T')[0];
-
-        for (var rez in tumRezervasyonlar) {
-          // Gelen tarih formatı "2026-02-08T00:00:00" olabilir, parse edip gününe bakıyoruz
-          String rezTarihStr = rez['rezDate'].toString().split('T')[0];
-          
-          // Eğer ID ve Tarih eşleşiyorsa o saati listeye ekle
-          if (rez['pitchId'] == sahaId && rezTarihStr == secilenTarihStr) {
-             doluSaatler.add(rez['rezHour']);
-          }
-        }
-        return doluSaatler;
-      }
-      return [];
-    } catch (e) {
-      print("Veri Çekme Hatası: $e");
-      return [];
-    }
-  }
-  // GET: api/Reservations
-  Future<List<dynamic>> randevularimiGetir(int userId) async {
-    try {
-      final url = Uri.parse('$_baseUrl/Reservations');
-      final response = await http.get(url);
-
-      if (response.statusCode == 200) {
-        List<dynamic> tumRezervasyonlar = jsonDecode(response.body);
-        
-        // Sadece bana ait olanları (userId) filtrele
-        // Not: İleride Backend'e "?userId=1" filtresi eklemek daha performanslı olur.
-        var benimkiler = tumRezervasyonlar.where((rez) => rez['userId'] == userId).toList();
-        
-        return benimkiler;
-      }
-      return [];
-    } catch (e) {
-      print("Randevu Geçmişi Hatası: $e");
-      return [];
-    }
-  }
-  // PUT: api/Users/5
-  Future<bool> bilgileriGuncelle(int userId, String adSoyad, String email, String telefon, String sifre) async {
-    try {
-      final url = Uri.parse('$_baseUrl/Users/$userId');
-      
-      final bodyData = jsonEncode({
-        "userId": userId,
-        "fullName": adSoyad,
-        "email": email,
-        "phoneNumber": telefon,
-        "passwordHash": sifre, // Şifreyi de gönderiyoruz (değişmediyse aynısını yollarız)
-        "createdAt": DateTime.now().toIso8601String() // Tarih zorunlu değil ama hata vermesin diye ekledik
-      });
-
-      final response = await http.put(
-        url,
-        headers: {"Content-Type": "application/json"},
-        body: bodyData,
-      );
-
-      if (response.statusCode == 204 || response.statusCode == 200) {
-        return true;
-      } else {
-        print("Güncelleme Hatası: ${response.body}");
-        return false;
-      }
-    } catch (e) {
-      print("Bağlantı Hatası: $e");
-      return false;
-    }
-  }
-  // --- KULLANICI BİLGİSİNİ GETİR (PROFİL İÇİN) ---
-  Future<Map<String, dynamic>?> kullaniciGetir(int userId) async {
-    try {
-      final url = Uri.parse('$_baseUrl/Users/$userId');
-      final response = await http.get(url);
-
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      }
-    } catch (e) {
-      print("Kullanıcı Getirme Hatası: $e");
-    }
-    return null;
-  }
-
-  // --- KARTLARI GETİR ---
-  Future<List<dynamic>> kartlariGetir(int userId) async {
-    try {
-      final url = Uri.parse('$_baseUrl/SavedCards?userId=$userId');
-      final response = await http.get(url);
-
-      if (response.statusCode == 200) {
-        return jsonDecode(response.body);
-      }
-    } catch (e) {
-      print("Kart Getirme Hatası: $e");
-    }
+      final response = await http.get(Uri.parse('$_baseUrl/Pitches'));
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (e) { print("Saha Hatası: $e"); }
     return [];
   }
 
-  // --- KART EKLE ---
-  Future<bool> kartEkle(int userId, String kartAdi, String kartNo) async {
+  Future<bool> rezervasyonYap(int sahaId, int userId, DateTime tarih, int saat, String notlar) async {
     try {
-      final url = Uri.parse('$_baseUrl/SavedCards');
       final response = await http.post(
-        url,
+        Uri.parse('$_baseUrl/Reservations'),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          "userId": userId,
-          "cardAlias": kartAdi,
-          "cardNumber": kartNo
+          "pitchId": sahaId, "userId": userId, "rezDate": tarih.toIso8601String(),
+          "rezHour": saat, "note": notlar, "status": 1
         }),
       );
       return response.statusCode == 201 || response.statusCode == 200;
-    } catch (e) {
-      return false;
-    }
+    } catch (e) { return false; }
   }
-  Future<bool> kartSil(int cardId) async {
-    try {
-      final url = Uri.parse('$_baseUrl/SavedCards/$cardId');
-      final response = await http.delete(url);
-      return response.statusCode == 204 || response.statusCode == 200;
-    } catch (e) {
-      return false;
-    }
-  }
-  // --- TÜM KULLANICILARI GETİR (ADMİN İÇİN) ---
-  Future<List<dynamic>> tumKullanicilariGetir() async {
-    try {
-      final url = Uri.parse('$_baseUrl/Users');
-      final response = await http.get(url);
 
+  Future<List<int>> doluSaatleriGetir(int sahaId, DateTime tarih) async {
+    try {
+      final response = await http.get(Uri.parse('$_baseUrl/Reservations'));
       if (response.statusCode == 200) {
-        return jsonDecode(response.body);
+        List<dynamic> list = jsonDecode(response.body);
+        String tarihStr = tarih.toIso8601String().split('T')[0];
+        return list
+            .where((r) => r['pitchId'] == sahaId && r['rezDate'].toString().startsWith(tarihStr))
+            .map<int>((r) => r['rezHour'] as int)
+            .toList();
       }
-    } catch (e) {
-      print("Kullanıcıları Getirme Hatası: $e");
-    }
+    } catch (e) { print("Saat Hatası: $e"); }
     return [];
   }
 
-  Future<bool> rolGuncelle(int userId, Map<String, dynamic> mevcutVeriler, String yeniRol) async {
+  Future<List<dynamic>> randevularimiGetir(int userId) async {
     try {
-      final url = Uri.parse('$_baseUrl/Users/$userId');
-      
-      // Mevcut verileri koruyarak sadece rolü değiştiriyoruz
-      mevcutVeriler['userId'] = userId; // ID'yi garantiye al
-      mevcutVeriler['role'] = yeniRol;  // Yeni rolü ata
-
-      // API tarih formatında sorun çıkarabilir, null veya boşsa şimdiki zamanı atayalım
-      if (mevcutVeriler['createdAt'] == null) {
-         mevcutVeriler['createdAt'] = DateTime.now().toIso8601String();
+      final response = await http.get(Uri.parse('$_baseUrl/Reservations'));
+      if (response.statusCode == 200) {
+        List<dynamic> list = jsonDecode(response.body);
+        return list.where((r) => r['userId'] == userId).toList();
       }
+    } catch (e) { print("Geçmiş Hatası: $e"); }
+    return [];
+  }
 
+  Future<bool> bilgileriGuncelle(int userId, String ad, String email, String tel, String sifre) async {
+    try {
       final response = await http.put(
-        url,
+        Uri.parse('$_baseUrl/Users/$userId'),
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode(mevcutVeriler),
+        body: jsonEncode({
+          "userId": userId, "fullName": ad, "email": email, "phoneNumber": tel, 
+          "passwordHash": sifre, "createdAt": DateTime.now().toIso8601String()
+        }),
       );
-
       return response.statusCode == 204 || response.statusCode == 200;
-    } catch (e) {
-      print("Rol Güncelleme Hatası: $e");
-      return false;
-    }
+    } catch (e) { return false; }
+  }
+
+  Future<Map<String, dynamic>?> kullaniciGetir(int userId) async {
+    try {
+      final response = await http.get(Uri.parse('$_baseUrl/Users/$userId'));
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (e) { print("Kullanıcı Getirme Hatası: $e"); }
+    return null;
+  }
+
+  // --- YENİ EKLENENLER (ADMİN İÇİN) ---
+  Future<List<dynamic>> tumKullanicilariGetir() async {
+    try {
+      final response = await http.get(Uri.parse('$_baseUrl/Users'));
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (e) { print("Kullanıcı Listesi Hatası: $e"); }
+    return [];
+  }
+
+  Future<bool> rolGuncelle(int userId, Map<String, dynamic> veriler, String yeniRol) async {
+    try {
+      veriler['userId'] = userId;
+      veriler['role'] = yeniRol;
+      final response = await http.put(
+        Uri.parse('$_baseUrl/Users/$userId'),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(veriler),
+      );
+      return response.statusCode == 204 || response.statusCode == 200;
+    } catch (e) { return false; }
+  }
+  
+  // Kart işlemleri
+  Future<List<dynamic>> kartlariGetir(int userId) async {
+    try {
+      final response = await http.get(Uri.parse('$_baseUrl/SavedCards?userId=$userId'));
+      if (response.statusCode == 200) return jsonDecode(response.body);
+    } catch (e) {} return [];
+  }
+  Future<bool> kartEkle(int userId, String ad, String no) async {
+    try {
+      final response = await http.post(Uri.parse('$_baseUrl/SavedCards'), headers: {"Content-Type": "application/json"}, body: jsonEncode({"userId": userId, "cardAlias": ad, "cardNumber": no}));
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {} return false;
+  }
+  Future<bool> kartSil(int id) async {
+    try {
+      final response = await http.delete(Uri.parse('$_baseUrl/SavedCards/$id'));
+      return response.statusCode == 200 || response.statusCode == 204;
+    } catch (e) {} return false;
   }
 }

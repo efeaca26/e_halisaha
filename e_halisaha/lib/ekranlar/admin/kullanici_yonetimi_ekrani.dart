@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../cekirdek/servisler/api_servisi.dart'; // KimlikServisi yerine bunu kullanıyoruz
+import '../../cekirdek/servisler/api_servisi.dart'; // ApiServisi kullanıyoruz
 
 class KullaniciYonetimiEkrani extends StatefulWidget {
   const KullaniciYonetimiEkrani({super.key});
@@ -30,7 +30,7 @@ class _KullaniciYonetimiEkraniState extends State<KullaniciYonetimiEkrani> {
   }
 
   void _rolDegistirDialog(Map<String, dynamic> kullanici) {
-    String secilenRol = kullanici['role'] ?? "oyuncu"; // Varsayılan rol
+    String secilenRol = kullanici['role'] ?? "oyuncu";
 
     showDialog(
       context: context,
@@ -41,24 +41,9 @@ class _KullaniciYonetimiEkraniState extends State<KullaniciYonetimiEkrani> {
             return Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _rolSecenek(
-                  baslik: "Oyuncu (Normal)", 
-                  deger: "oyuncu", 
-                  grupDegeri: secilenRol, 
-                  onChanged: (val) => setStateSB(() => secilenRol = val)
-                ),
-                _rolSecenek(
-                  baslik: "İşletme Sahibi", 
-                  deger: "isletme", 
-                  grupDegeri: secilenRol, 
-                  onChanged: (val) => setStateSB(() => secilenRol = val)
-                ),
-                _rolSecenek(
-                  baslik: "Yönetici (Admin)", 
-                  deger: "admin", 
-                  grupDegeri: secilenRol, 
-                  onChanged: (val) => setStateSB(() => secilenRol = val)
-                ),
+                _rolSecenek(baslik: "Oyuncu", deger: "oyuncu", grupDegeri: secilenRol, onChanged: (v) => setStateSB(() => secilenRol = v)),
+                _rolSecenek(baslik: "İşletme", deger: "isletme", grupDegeri: secilenRol, onChanged: (v) => setStateSB(() => secilenRol = v)),
+                _rolSecenek(baslik: "Admin", deger: "admin", grupDegeri: secilenRol, onChanged: (v) => setStateSB(() => secilenRol = v)),
               ],
             );
           },
@@ -67,19 +52,13 @@ class _KullaniciYonetimiEkraniState extends State<KullaniciYonetimiEkrani> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("İptal")),
           ElevatedButton(
             onPressed: () async {
-              // API'ye Güncelleme İsteği At
               bool basarili = await _apiServisi.rolGuncelle(kullanici['userId'], kullanici, secilenRol);
-              
               if (basarili) {
-                _verileriYukle(); // Listeyi yenile
+                _verileriYukle();
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("${kullanici['fullName']} artık $secilenRol!"), backgroundColor: Colors.green)
-                );
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Rol güncellendi!"), backgroundColor: Colors.green));
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Güncelleme başarısız!"), backgroundColor: Colors.red)
-                );
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Hata oluştu!"), backgroundColor: Colors.red));
               }
             },
             child: const Text("Kaydet"),
@@ -94,9 +73,7 @@ class _KullaniciYonetimiEkraniState extends State<KullaniciYonetimiEkrani> {
       title: Text(baslik),
       value: deger,
       groupValue: grupDegeri,
-      onChanged: (val) {
-        if (val != null) onChanged(val);
-      },
+      onChanged: (val) { if (val != null) onChanged(val); },
     );
   }
 
@@ -104,49 +81,22 @@ class _KullaniciYonetimiEkraniState extends State<KullaniciYonetimiEkrani> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Kullanıcı Yönetimi")),
-      body: _yukleniyor 
-        ? const Center(child: CircularProgressIndicator())
-        : kullanicilar.isEmpty
-          ? const Center(child: Text("Kayıtlı kullanıcı yok."))
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: kullanicilar.length,
-              itemBuilder: (context, index) {
-                final user = kullanicilar[index];
-                final role = (user['role'] ?? "oyuncu").toString().toLowerCase();
-
-                Color rolRengi;
-                IconData rolIkonu;
-
-                if (role == 'admin') {
-                   rolRengi = Colors.red;
-                   rolIkonu = Icons.admin_panel_settings;
-                } else if (role == 'isletme') {
-                   rolRengi = Colors.orange;
-                   rolIkonu = Icons.store;
-                } else {
-                   rolRengi = Colors.green;
-                   rolIkonu = Icons.person;
-                }
-
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: rolRengi,
-                      child: Icon(rolIkonu, color: Colors.white),
-                    ),
-                    title: Text(user['fullName'] ?? "İsimsiz", style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: Text("${user['email']}\nRol: ${role.toUpperCase()}"),
-                    isThreeLine: true,
-                    trailing: IconButton(
-                      icon: const Icon(Icons.edit, color: Colors.blue),
-                      onPressed: () => _rolDegistirDialog(user),
-                    ),
-                  ),
-                );
-              },
+      body: _yukleniyor ? const Center(child: CircularProgressIndicator()) : kullanicilar.isEmpty ? const Center(child: Text("Kullanıcı yok.")) : ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: kullanicilar.length,
+        itemBuilder: (context, index) {
+          final user = kullanicilar[index];
+          final role = (user['role'] ?? "oyuncu").toString().toLowerCase();
+          return Card(
+            child: ListTile(
+              leading: CircleAvatar(child: Icon(role == 'admin' ? Icons.admin_panel_settings : Icons.person)),
+              title: Text(user['fullName'] ?? "İsimsiz"),
+              subtitle: Text("${user['email']}\nRol: $role"),
+              trailing: IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _rolDegistirDialog(user)),
             ),
+          );
+        },
+      ),
     );
   }
 }

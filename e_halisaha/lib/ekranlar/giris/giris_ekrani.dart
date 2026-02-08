@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../cekirdek/servisler/api_servisi.dart'; // Yolunu kontrol et!
-import '../anasayfa/anasayfa_ekrani.dart'; // Yolunu kontrol et!
+import '../../cekirdek/servisler/api_servisi.dart';
+import '../anasayfa/anasayfa_ekrani.dart';
 
 class GirisEkrani extends StatefulWidget {
   const GirisEkrani({super.key});
@@ -10,6 +10,9 @@ class GirisEkrani extends StatefulWidget {
 }
 
 class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin {
+  // API Servisini nesne olarak çağırıyoruz
+  final ApiServisi _apiServisi = ApiServisi();
+
   late AnimationController _topKontrolcusu;
   late AnimationController _icerikKontrolcusu;
   late Animation<double> _topDusmeAnimasyonu;
@@ -23,15 +26,12 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
   bool _girisSifreGizli = true; 
   bool _kayitSifreGizli = true; 
 
-  // --- API SERVİSİNİ BURADA ÇAĞIRIYORUZ ---
-  final ApiServisi _apiServisi = ApiServisi(); 
-
-  // Controller'lar
-  final _emailController = TextEditingController(); // E-Posta için
+  // Controllerlar
+  final _girisController = TextEditingController(); 
   final _sifreController = TextEditingController();
   
   final _kayitIsimController = TextEditingController();
-  final _kayitEmailController = TextEditingController(); // Yeni: E-posta ile kayıt
+  final _kayitEmailController = TextEditingController(); // E-posta için
   final _kayitTelefonController = TextEditingController();
   final _kayitSifreController = TextEditingController();
 
@@ -57,72 +57,58 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
     _icerikKontrolcusu.forward(); 
   }
 
-  // --- GİRİŞ YAPMA FONKSİYONU ---
+  // --- GİRİŞ YAP ---
   void _girisYap() async {
-    if (_emailController.text.isEmpty || _sifreController.text.isEmpty) {
-      _mesajGoster("Lütfen e-posta ve şifrenizi girin.", kirmizi: true);
+    if (_girisController.text.isEmpty || _sifreController.text.isEmpty) {
+      _mesajGoster("Lütfen alanları doldurun", kirmizi: true);
       return;
     }
 
     setState(() => _yukleniyor = true);
 
-    // API'ye İstek Atıyoruz
-    // DİKKAT: Artık _apiServisi.girisYap diyoruz (Static değil)
-    final sonuc = await _apiServisi.girisYap(
-      _emailController.text.trim(),
+    // DÜZELTME: Artık boolean dönüyor (true/false)
+    bool basarili = await _apiServisi.girisYap(
+      _girisController.text.trim(),
       _sifreController.text.trim()
     );
 
     setState(() => _yukleniyor = false);
 
-    if (sonuc != null) {
-      // Başarılı! (Gelen veriyi kullanabiliriz: sonuc['userId'] gibi)
-      if (mounted) {
-        Navigator.pushReplacement(
-          context, 
-          MaterialPageRoute(builder: (context) => const AnasayfaEkrani())
-        );
-      }
+    if (basarili) {
+      if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AnasayfaEkrani()));
     } else {
       _mesajGoster("Giriş Başarısız! E-posta veya şifre hatalı.", kirmizi: true);
     }
   }
 
-  // --- KAYIT OLMA FONKSİYONU ---
+  // --- KAYIT OL ---
   void _kayitOl() async {
-    if (_kayitIsimController.text.isEmpty || _kayitEmailController.text.isEmpty || _kayitSifreController.text.isEmpty) {
-      _mesajGoster("Lütfen tüm alanları doldurun.", kirmizi: true);
+    if (_kayitIsimController.text.isEmpty || _kayitTelefonController.text.isEmpty || _kayitSifreController.text.isEmpty) {
+      _mesajGoster("Eksik bilgi girdiniz", kirmizi: true);
       return;
     }
 
     setState(() => _yukleniyor = true);
 
-    // API'ye İstek Atıyoruz
     bool basarili = await _apiServisi.kayitOl(
       _kayitIsimController.text.trim(),
-      _kayitEmailController.text.trim(), // Backend email bekliyor
+      _kayitTelefonController.text.trim(), 
       _kayitSifreController.text.trim(),
-      _kayitTelefonController.text.trim()
+      isletmeModu
     );
 
     setState(() => _yukleniyor = false);
 
     if (basarili) {
-      _mesajGoster("Kayıt Başarılı! Şimdi giriş yapabilirsiniz.");
-      _tabController.animateTo(0); // Giriş sekmesine geç
+      _mesajGoster("Kayıt Başarılı! Şimdi giriş yapabilirsin.");
+      _tabController.animateTo(0);
     } else {
-      _mesajGoster("Kayıt olunamadı. Bu e-posta kullanılıyor olabilir.", kirmizi: true);
+      _mesajGoster("Kayıt olunamadı.", kirmizi: true);
     }
   }
 
   void _mesajGoster(String mesaj, {bool kirmizi = false}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(mesaj), 
-        backgroundColor: kirmizi ? Colors.red : Colors.green
-      )
-    );
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mesaj), backgroundColor: kirmizi ? Colors.red : Colors.green));
   }
 
   @override
@@ -163,7 +149,7 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
                   position: _icerikKayma,
                   child: Container(
                     padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 20)]),
+                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20)]),
                     child: Column(
                       children: [
                         Row(children: [_rolButonu("Oyuncu", !isletmeModu), _rolButonu("İşletme", isletmeModu)]),
@@ -177,7 +163,7 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
                         ),
                         const SizedBox(height: 20),
                         SizedBox(
-                          height: 350, // Yüksekliği biraz artırdım çünkü formlar uzadı
+                          height: 350,
                           child: TabBarView(
                             controller: _tabController,
                             children: [_girisFormu(), _kayitFormu()],
@@ -213,13 +199,12 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
     return Column(
       children: [
         TextField(
-          controller: _emailController, 
+          controller: _girisController, 
           keyboardType: TextInputType.emailAddress, 
           decoration: const InputDecoration(
-            labelText: "E-Posta",
-            hintText: "email@gmail.com", 
+            labelText: "E-Posta", // hintText yerine labelText
             prefixIcon: Icon(Icons.email_outlined),
-            border: OutlineInputBorder(), // Çerçeve ekledim daha şık olsun
+            border: OutlineInputBorder(), 
           )
         ),
         const SizedBox(height: 15),
@@ -227,7 +212,7 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
           controller: _sifreController, 
           obscureText: _girisSifreGizli, 
           decoration: InputDecoration(
-            labelText: "Şifre",
+            labelText: "Şifre", // hintText yerine labelText
             prefixIcon: const Icon(Icons.lock_outline), 
             border: const OutlineInputBorder(),
             suffixIcon: IconButton(
@@ -255,28 +240,18 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
         children: [
           TextField(controller: _kayitIsimController, decoration: const InputDecoration(labelText: "Ad Soyad", prefixIcon: Icon(Icons.person_outline), border: OutlineInputBorder())),
           const SizedBox(height: 10),
+          // E-posta alanı eklendi (Backend istiyor)
           TextField(controller: _kayitEmailController, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: "E-Posta", prefixIcon: Icon(Icons.email_outlined), border: OutlineInputBorder())),
           const SizedBox(height: 10),
-          TextField(controller: _kayitTelefonController, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: "Telefon", prefixIcon: Icon(Icons.phone), border: OutlineInputBorder())),
-          const SizedBox(height: 10),
           TextField(
-            controller: _kayitSifreController, 
-            obscureText: _kayitSifreGizli, 
-            decoration: InputDecoration(
-              labelText: "Şifre", 
-              prefixIcon: const Icon(Icons.lock_outline), 
-              border: const OutlineInputBorder(),
-              suffixIcon: IconButton(icon: Icon(_kayitSifreGizli ? Icons.visibility_off : Icons.visibility), onPressed: () => setState(() => _kayitSifreGizli = !_kayitSifreGizli))
-            )
+            controller: _kayitTelefonController, 
+            keyboardType: TextInputType.phone,
+            decoration: const InputDecoration(labelText: "Telefon", prefixIcon: Icon(Icons.phone), border: OutlineInputBorder())
           ),
+          const SizedBox(height: 10),
+          TextField(controller: _kayitSifreController, obscureText: _kayitSifreGizli, decoration: InputDecoration(labelText: "Şifre", prefixIcon: const Icon(Icons.lock_outline), border: const OutlineInputBorder(), suffixIcon: IconButton(icon: Icon(_kayitSifreGizli ? Icons.visibility_off : Icons.visibility), onPressed: () => setState(() => _kayitSifreGizli = !_kayitSifreGizli)))),
           const SizedBox(height: 20),
-          _yukleniyor 
-            ? const CircularProgressIndicator() 
-            : ElevatedButton(
-                onPressed: _kayitOl, 
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF22C55E), minimumSize: const Size(double.infinity, 50)), 
-                child: const Text("KAYIT OL", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
-              ),
+          _yukleniyor ? const CircularProgressIndicator() : ElevatedButton(onPressed: _kayitOl, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF22C55E), minimumSize: const Size(double.infinity, 50)), child: const Text("KAYIT OL", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
         ],
       ),
     );
