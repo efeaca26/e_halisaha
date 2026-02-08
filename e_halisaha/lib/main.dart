@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:http/http.dart' as http; // HTTP paketi eklendi
-import 'dart:convert'; // JSON çevirici eklendi
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 import 'ekranlar/giris/giris_ekrani.dart';
 
@@ -53,8 +53,8 @@ class EHalisahaUygulamasi extends StatelessWidget {
             Locale('tr', 'TR'),
           ],
           // BURASI DEĞİŞTİ: Test bitince tekrar GirisEkrani() yapabilirsin.
-          // home: const GirisEkrani(),
-          home: const ApiTestEkrani(), 
+          home: const GirisEkrani(),
+          // home: const ApiTestEkrani(), 
         );
       },
     );
