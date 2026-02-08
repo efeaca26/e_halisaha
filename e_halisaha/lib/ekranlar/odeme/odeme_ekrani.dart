@@ -3,8 +3,7 @@ import 'package:flutter/services.dart';
 import 'dart:math';
 import 'dart:async';
 import '../../modeller/saha_modeli.dart';
-import '../../cekirdek/servisler/rezervasyon_servisi.dart';
-import '../../cekirdek/servisler/odeme_servisi.dart';
+import '../../cekirdek/servisler/api_servisi.dart'; // YENİ: API Servisi eklendi
 import '../anasayfa/anasayfa_ekrani.dart';
 
 class OdemeEkrani extends StatefulWidget {
@@ -26,6 +25,9 @@ class OdemeEkrani extends StatefulWidget {
 }
 
 class _OdemeEkraniState extends State<OdemeEkrani> {
+  // API Servisini Çağırıyoruz
+  final ApiServisi _apiServisi = ApiServisi();
+
   bool _yukleniyor = false;
   int _secilenYontem = 0; // 0: Kart Tamamı, 1: Kart Kapora, 2: IBAN
   bool _arkaYuzMu = false;
@@ -78,6 +80,7 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
     return "${dakika.toString().padLeft(2, '0')}:${saniye.toString().padLeft(2, '0')}";
   }
 
+  // --- KART İLE ÖDEME VE KAYIT ---
   void _islemYap() async {
     if (_secilenYontem == 2) {
        _ibanIleOde();
@@ -90,19 +93,46 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
     }
 
     setState(() => _yukleniyor = true);
-    await Future.delayed(const Duration(seconds: 2));
     
-    RezervasyonServisi.rezervasyonYap(widget.saha.id, widget.tarih, widget.saat, "Kredi Kartı Ödemesi", beklemede: false);
+    // API için verileri hazırla
+    int sahaId = int.tryParse(widget.saha.id) ?? 0;
+    int saatInt = int.parse(widget.saat.split(":")[0]); // "19:00" -> 19
+
+    // GERÇEK VERİTABANINA KAYIT
+    bool basarili = await _apiServisi.rezervasyonYap(
+      sahaId, 
+      1, // Şimdilik ID'si 1 olan kullanıcı adına yapıyoruz
+      widget.tarih, 
+      saatInt, 
+      "Kredi Kartı - ${_isimController.text}"
+    );
     
-    if (_kartNoController.text.isNotEmpty) {
-      OdemeServisi.kartEkle(_kartNoController.text, _isimController.text.isEmpty ? "Kart" : _isimController.text);
+    setState(() => _yukleniyor = false);
+
+    if (basarili) {
+      _basariylaBitir("Ödeme Alındı, Rezervasyon Onaylandı! 🎉");
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Rezervasyon yapılamadı! Bağlantı hatası."), backgroundColor: Colors.red));
     }
-    
-    _basariylaBitir("Ödeme Alındı, Rezervasyon Onaylandı! 🎉");
   }
 
-  void _ibanIleOde() {
-    RezervasyonServisi.rezervasyonYap(widget.saha.id, widget.tarih, widget.saat, "IBAN Transferi - Dekont Bekleniyor", beklemede: true);
+  // --- IBAN İLE KAYIT ---
+  void _ibanIleOde() async {
+    // API için verileri hazırla
+    int sahaId = int.tryParse(widget.saha.id) ?? 0;
+    int saatInt = int.parse(widget.saat.split(":")[0]);
+
+    // IBAN Ödemesi için rezervasyon oluştur
+    // Not: Normalde "Pending" (Beklemede) durumu gönderilmeli ama şimdilik direkt kaydediyoruz.
+    await _apiServisi.rezervasyonYap(
+      sahaId, 
+      1, 
+      widget.tarih, 
+      saatInt, 
+      "IBAN Transferi - Dekont Bekleniyor"
+    );
+
+    if (!mounted) return;
 
     showDialog(
       context: context,
@@ -127,6 +157,7 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
     if (!mounted) return;
     _zamanlayici?.cancel();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mesaj), backgroundColor: Colors.green));
+    // Ana sayfaya dönüyoruz, böylece listeler yenilenir
     Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const AnasayfaEkrani()), (route) => false);
   }
 
@@ -191,7 +222,6 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
               ),
               child: Column(
                 children: [
-                  // 1. Satır: Toplam Borç
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -200,14 +230,12 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
                         "${toplamTutar.toStringAsFixed(0)}₺", 
                         style: TextStyle(
                           fontWeight: FontWeight.bold, 
-                          decoration: _secilenYontem == 1 ? TextDecoration.lineThrough : null, // Kapora seçiliyse üstünü çiz
+                          decoration: _secilenYontem == 1 ? TextDecoration.lineThrough : null,
                           color: _secilenYontem == 1 ? Colors.grey : Colors.black
                         )
                       ),
                     ],
                   ),
-
-                  // 2. Satır: Kapora Seçiliyse Detaylar
                   if (_secilenYontem == 1) ...[
                     Padding(
                       padding: const EdgeInsets.only(top: 8.0),
@@ -219,7 +247,6 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
                         ],
                       ),
                     ),
-                    // --- YENİ EKLENEN KISIM: KALAN BORÇ ---
                     Padding(
                       padding: const EdgeInsets.only(top: 8.0),
                       child: Row(
@@ -234,7 +261,6 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
 
                   const Divider(height: 20),
                   
-                  // 3. Satır: Şimdi Ödenecek (Vurgulu)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -245,7 +271,6 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
                 ],
               ),
             ),
-            // ------------------------------------------
 
             const SizedBox(height: 20),
 
@@ -260,7 +285,7 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
             const SizedBox(height: 30),
 
             if (_secilenYontem == 2) ...[
-              // IBAN EKRANI (Aynı Kaldı)
+              // IBAN EKRANI
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
@@ -291,24 +316,12 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 20),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
-                      child: const Row(
-                        children: [
-                          Icon(Icons.warning_amber_rounded, color: Colors.orange),
-                          SizedBox(width: 10),
-                          Expanded(child: Text("Lütfen açıklama kısmına Adınızı Soyadınızı yazınız.", style: TextStyle(fontSize: 12, color: Colors.black87))),
-                        ],
-                      ),
-                    )
                   ],
                 ),
               )
             ] 
             else ...[
-              // KART GİRİŞ ALANLARI (Aynı Kaldı)
+              // KART GİRİŞ ALANLARI
               const SizedBox(height: 10),
               _inputAlani(_isimController, "Kart Üzerindeki İsim", Icons.person, limit: 26),
               const SizedBox(height: 15),

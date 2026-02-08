@@ -1,38 +1,10 @@
 import 'package:flutter/material.dart';
-import '../../main.dart';
-import '../../cekirdek/servisler/rezervasyon_servisi.dart';
-import '../../modeller/saha_modeli.dart';
-import '../../cekirdek/servisler/odeme_servisi.dart';
-import '../../cekirdek/servisler/kimlik_servisi.dart';
+import '../../main.dart'; // Tema yöneticisi için
+import '../../cekirdek/servisler/api_servisi.dart'; // API Servisi
+import '../../cekirdek/servisler/kimlik_servisi.dart'; // Kullanıcı bilgisi için
+import '../../cekirdek/servisler/odeme_servisi.dart'; // Kart işlemleri için
 
-// --- 1. GENEL "YAPIM AŞAMASINDA" SAYFASI (Yedek) ---
-class GenelAltSayfa extends StatelessWidget {
-  final String baslik;
-  final IconData ikon;
-
-  const GenelAltSayfa({super.key, required this.baslik, required this.ikon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(baslik)),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(ikon, size: 80, color: Colors.grey[300]),
-            const SizedBox(height: 20),
-            Text("$baslik Burada Olacak", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 10),
-            const Text("Bu özellik geliştirme aşamasındadır.", style: TextStyle(color: Colors.grey)),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// --- 2. HESAP BİLGİLERİ EKRANI (Doğum Tarihi Seçmeli) ---
+// --- 1. HESAP BİLGİLERİ (API İLE GÜNCELLENEBİLİR) ---
 class HesapBilgileriEkrani extends StatefulWidget {
   const HesapBilgileriEkrani({super.key});
 
@@ -41,159 +13,201 @@ class HesapBilgileriEkrani extends StatefulWidget {
 }
 
 class _HesapBilgileriEkraniState extends State<HesapBilgileriEkrani> {
-  final Map<String, dynamic> kullanici = KimlikServisi.aktifKullanici ?? {}; 
+  final ApiServisi _apiServisi = ApiServisi();
   
-  Future<void> _tarihSec(BuildContext context) async {
-    final DateTime? secilenTarih = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(1950),
-      lastDate: DateTime.now(),
-      locale: const Locale('tr', 'TR'),
+  late TextEditingController _adController;
+  late TextEditingController _emailController;
+  late TextEditingController _telefonController;
+  late TextEditingController _sifreController;
+
+  bool _yukleniyor = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final k = KimlikServisi.aktifKullanici;
+    _adController = TextEditingController(text: k?['isim'] ?? "");
+    _emailController = TextEditingController(text: k?['email'] ?? "");
+    _telefonController = TextEditingController(text: k?['telefon'] ?? "");
+    _sifreController = TextEditingController(text: "mevcutsifre"); 
+  }
+
+  void _kaydet() async {
+    setState(() => _yukleniyor = true);
+
+    int userId = KimlikServisi.aktifKullanici?['id'] ?? 1;
+
+    // API'ye güncelleme isteği atıyoruz
+    bool basarili = await _apiServisi.bilgileriGuncelle(
+      userId,
+      _adController.text,
+      _emailController.text,
+      _telefonController.text,
+      _sifreController.text
     );
 
-    if (secilenTarih != null) {
-      setState(() {
-        String formatliTarih = "${secilenTarih.day}.${secilenTarih.month}.${secilenTarih.year}";
-        kullanici['dogumTarihi'] = formatliTarih;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Doğum tarihi güncellendi!"), backgroundColor: Colors.green),
-      );
+    setState(() => _yukleniyor = false);
+
+    if (basarili) {
+      // Başarılıysa telefondaki bilgiyi de güncelle
+      KimlikServisi.aktifKullanici?['isim'] = _adController.text;
+      KimlikServisi.aktifKullanici?['email'] = _emailController.text;
+      KimlikServisi.aktifKullanici?['telefon'] = _telefonController.text;
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Bilgiler Güncellendi! ✅"), backgroundColor: Colors.green));
+        Navigator.pop(context); // Profil sayfasına dön
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Güncelleme Başarısız!"), backgroundColor: Colors.red));
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (KimlikServisi.aktifKullanici == null) {
-      return const Scaffold(body: Center(child: Text("Lütfen tekrar giriş yapınız.")));
-    }
-
     return Scaffold(
-      appBar: AppBar(title: const Text("Hesap Bilgileri")),
-      body: Padding(
+      appBar: AppBar(title: const Text("Bilgilerimi Düzenle")),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            _saltOkunurSatir("Ad Soyad", kullanici['isim']),
-            _saltOkunurSatir("E-Posta", kullanici['email']),
-            _saltOkunurSatir("Telefon", kullanici['telefon']),
-            const SizedBox(height: 10),
-            GestureDetector(
-              onTap: () => _tarihSec(context),
-              child: Container(
-                padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : const Color(0xFFF0FDF4),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFF22C55E).withOpacity(0.5))
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text("Doğum Tarihi"),
-                    Row(
-                      children: [
-                        Text(
-                          kullanici['dogumTarihi'] ?? "Seçiniz", 
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF15803D))
-                        ),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.edit_calendar, size: 20, color: Color(0xFF15803D)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+            const CircleAvatar(
+              radius: 40,
+              backgroundColor: Color(0xFF22C55E),
+              child: Icon(Icons.edit, color: Colors.white, size: 30),
             ),
+            const SizedBox(height: 20),
+            
+            _inputKutusu("Ad Soyad", Icons.person, _adController),
+            const SizedBox(height: 15),
+            _inputKutusu("E-Posta", Icons.email, _emailController),
+            const SizedBox(height: 15),
+            _inputKutusu("Telefon", Icons.phone, _telefonController),
+            const SizedBox(height: 15),
+            _inputKutusu("Şifre", Icons.lock, _sifreController, gizli: true),
+            
+            const SizedBox(height: 30),
+            
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: _yukleniyor ? null : _kaydet, 
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF22C55E), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                child: _yukleniyor 
+                  ? const CircularProgressIndicator(color: Colors.white) 
+                  : const Text("Değişiklikleri Kaydet", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+              )
+            )
           ],
         ),
       ),
     );
   }
 
-  Widget _saltOkunurSatir(String baslik, String? deger) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor, 
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.withOpacity(0.2))
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(baslik, style: const TextStyle(color: Colors.grey)),
-          Text(deger ?? "-", style: const TextStyle(fontWeight: FontWeight.bold)),
-        ],
+  Widget _inputKutusu(String baslik, IconData ikon, TextEditingController controller, {bool gizli = false}) {
+    return TextField(
+      controller: controller,
+      obscureText: gizli,
+      decoration: InputDecoration(
+        labelText: baslik,
+        prefixIcon: Icon(ikon),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        filled: true,
+        fillColor: Theme.of(context).cardColor
       ),
     );
   }
 }
 
-// --- 3. GEÇMİŞ REZERVASYONLAR VE PUANLAMA ---
-class GecmisRezervasyonlarEkrani extends StatelessWidget {
+// --- 2. GEÇMİŞ REZERVASYONLAR (API BAĞLANTILI) ---
+class GecmisRezervasyonlarEkrani extends StatefulWidget {
   const GecmisRezervasyonlarEkrani({super.key});
 
-  void _puanla(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Sahayı Puanla"),
-        content: const Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [Icon(Icons.star, color: Colors.amber), Icon(Icons.star, color: Colors.amber), Icon(Icons.star, color: Colors.amber), Icon(Icons.star, color: Colors.amber), Icon(Icons.star_border)],
-        ),
-        actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Tamam"))],
-      ),
-    );
+  @override
+  State<GecmisRezervasyonlarEkrani> createState() => _GecmisRezervasyonlarEkraniState();
+}
+
+class _GecmisRezervasyonlarEkraniState extends State<GecmisRezervasyonlarEkrani> {
+  final ApiServisi _apiServisi = ApiServisi();
+  List<dynamic> _liste = [];
+  bool _yukleniyor = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _verileriCek();
+  }
+
+  void _verileriCek() async {
+    int userId = KimlikServisi.aktifKullanici?['id'] ?? 1;
+    var gelenVeri = await _apiServisi.randevularimiGetir(userId);
+    
+    if (mounted) {
+      setState(() {
+        _liste = List.from(gelenVeri.reversed);
+        _yukleniyor = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final liste = RezervasyonServisi.kullaniciRezervasyonlari;
     return Scaffold(
-      appBar: AppBar(title: const Text("Geçmiş Maçlar")),
-      body: liste.isEmpty 
-          ? const Center(child: Text("Henüz maç geçmişiniz yok."))
-          : ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: liste.length,
-              itemBuilder: (context, index) {
-                final kayit = liste[index];
-                final SahaModeli saha = kayit['saha'];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    leading: ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.asset(saha.resimYolu, width: 50, height: 50, fit: BoxFit.cover)),
-                    title: Text(saha.isim),
-                    subtitle: Text(kayit['tarih'].toString().substring(0, 10)),
-                    trailing: ElevatedButton(
-                      onPressed: () => _puanla(context),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
-                      child: const Text("Puanla", style: TextStyle(color: Colors.black)),
+      appBar: AppBar(title: const Text("Geçmiş Maçlarım")),
+      body: _yukleniyor 
+        ? const Center(child: CircularProgressIndicator())
+        : _liste.isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.sports_soccer, size: 60, color: Colors.grey[300]),
+                    const SizedBox(height: 10),
+                    const Text("Henüz maç yapmadınız.", style: TextStyle(color: Colors.grey)),
+                  ],
+                ),
+              )
+            : ListView.builder(
+                padding: const EdgeInsets.all(16),
+                itemCount: _liste.length,
+                itemBuilder: (context, index) {
+                  var mac = _liste[index];
+                  String tarih = mac['rezDate'].toString().split('T')[0];
+                  
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: ListTile(
+                      leading: Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(color: const Color(0xFF22C55E).withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                        child: const Icon(Icons.sports_soccer, color: Color(0xFF22C55E)),
+                      ),
+                      title: Text("Saha #${mac['pitchId']} - Maç", style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text("$tarih | Saat: ${mac['rezHour']}:00"),
+                      trailing: const Icon(Icons.check_circle, color: Colors.green),
                     ),
-                  ),
-                );
-              },
-            ),
+                  );
+                },
+              ),
     );
   }
 }
 
-// --- 4. GEÇMİŞ RAKİPLER VE OYUNCULAR ---
+// --- 3. GEÇMİŞ DETAY (Rakip/Oyuncu) ---
 class GecmisDetayEkrani extends StatelessWidget {
   final String baslik;
-  final bool rakipMi; // True ise rakip, False ise oyuncu
+  final bool rakipMi;
   const GecmisDetayEkrani({super.key, required this.baslik, required this.rakipMi});
 
   @override
   Widget build(BuildContext context) {
-    // Sahte veri
     final veriler = rakipMi 
         ? ["Gebze Gücü", "Yıldızlar FC", "Körfez SK"] 
-        : ["Muslera Ahmet", "Hızlı Kemal", "Panter Sinan"];
+        : ["Ahmet Yılmaz", "Mehmet Demir", "Ali Kaya"];
 
     return Scaffold(
       appBar: AppBar(title: Text(baslik)),
@@ -212,7 +226,7 @@ class GecmisDetayEkrani extends StatelessWidget {
   }
 }
 
-// --- 5. ÖDEME YÖNTEMLERİ (Kart Ekle/Sil) ---
+// --- 4. ÖDEME YÖNTEMLERİ (Kart Ekle/Sil) ---
 class OdemeYontemleriEkrani extends StatefulWidget {
   const OdemeYontemleriEkrani({super.key});
   @override
@@ -220,13 +234,6 @@ class OdemeYontemleriEkrani extends StatefulWidget {
 }
 
 class _OdemeYontemleriEkraniState extends State<OdemeYontemleriEkrani> {
-  
-  @override
-  void initState() {
-    super.initState();
-    setState(() {}); 
-  }
-
   void _kartEkleDialog() {
     String girilenNo = "";
     String girilenIsim = "";
@@ -244,7 +251,7 @@ class _OdemeYontemleriEkraniState extends State<OdemeYontemleriEkrani> {
             ),
             const SizedBox(height: 10),
             TextField(
-              decoration: const InputDecoration(hintText: "Kart Numarası (Sadece son 4 hane alınır)"),
+              decoration: const InputDecoration(hintText: "Kart Numarası (Son 4 hane)"),
               keyboardType: TextInputType.number,
               maxLength: 16,
               onChanged: (val) => girilenNo = val,
@@ -286,7 +293,6 @@ class _OdemeYontemleriEkraniState extends State<OdemeYontemleriEkrani> {
             itemCount: kartlar.length,
             itemBuilder: (context, index) {
               return Card(
-                elevation: 2,
                 margin: const EdgeInsets.only(bottom: 12),
                 child: ListTile(
                   leading: Container(
@@ -311,7 +317,7 @@ class _OdemeYontemleriEkraniState extends State<OdemeYontemleriEkrani> {
   }
 }
 
-// --- 6. AYARLAR (Tema Değiştirme) ---
+// --- 5. AYARLAR (Tema Değiştirme) ---
 class AyarlarEkrani extends StatelessWidget {
   const AyarlarEkrani({super.key});
 
