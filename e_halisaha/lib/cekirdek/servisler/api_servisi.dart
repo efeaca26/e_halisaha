@@ -197,4 +197,101 @@ class ApiServisi {
       return false;
     }
   }
+  // --- KULLANICI BİLGİSİNİ GETİR (PROFİL İÇİN) ---
+  Future<Map<String, dynamic>?> kullaniciGetir(int userId) async {
+    try {
+      final url = Uri.parse('$_baseUrl/Users/$userId');
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+    } catch (e) {
+      print("Kullanıcı Getirme Hatası: $e");
+    }
+    return null;
+  }
+
+  // --- KARTLARI GETİR ---
+  Future<List<dynamic>> kartlariGetir(int userId) async {
+    try {
+      final url = Uri.parse('$_baseUrl/SavedCards?userId=$userId');
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+    } catch (e) {
+      print("Kart Getirme Hatası: $e");
+    }
+    return [];
+  }
+
+  // --- KART EKLE ---
+  Future<bool> kartEkle(int userId, String kartAdi, String kartNo) async {
+    try {
+      final url = Uri.parse('$_baseUrl/SavedCards');
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "userId": userId,
+          "cardAlias": kartAdi,
+          "cardNumber": kartNo
+        }),
+      );
+      return response.statusCode == 201 || response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+  Future<bool> kartSil(int cardId) async {
+    try {
+      final url = Uri.parse('$_baseUrl/SavedCards/$cardId');
+      final response = await http.delete(url);
+      return response.statusCode == 204 || response.statusCode == 200;
+    } catch (e) {
+      return false;
+    }
+  }
+  // --- TÜM KULLANICILARI GETİR (ADMİN İÇİN) ---
+  Future<List<dynamic>> tumKullanicilariGetir() async {
+    try {
+      final url = Uri.parse('$_baseUrl/Users');
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+    } catch (e) {
+      print("Kullanıcıları Getirme Hatası: $e");
+    }
+    return [];
+  }
+
+  Future<bool> rolGuncelle(int userId, Map<String, dynamic> mevcutVeriler, String yeniRol) async {
+    try {
+      final url = Uri.parse('$_baseUrl/Users/$userId');
+      
+      // Mevcut verileri koruyarak sadece rolü değiştiriyoruz
+      mevcutVeriler['userId'] = userId; // ID'yi garantiye al
+      mevcutVeriler['role'] = yeniRol;  // Yeni rolü ata
+
+      // API tarih formatında sorun çıkarabilir, null veya boşsa şimdiki zamanı atayalım
+      if (mevcutVeriler['createdAt'] == null) {
+         mevcutVeriler['createdAt'] = DateTime.now().toIso8601String();
+      }
+
+      final response = await http.put(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(mevcutVeriler),
+      );
+
+      return response.statusCode == 204 || response.statusCode == 200;
+    } catch (e) {
+      print("Rol Güncelleme Hatası: $e");
+      return false;
+    }
+  }
 }
