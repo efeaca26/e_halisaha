@@ -9,13 +9,18 @@ class KimlikServisi {
 
   // --- GİRİŞ YAPINCA VERİLERİ KAYDET ---
   static Future<void> girisYapveKaydet(Map<String, dynamic> apiCevabi) async {
+    // Debug için konsola basalım
+    print("API'den Gelen Ham Veri: ${apiCevabi['user']}");
+    print("API'den Gelen Rol: ${apiCevabi['user']['role']}");
+
     // 1. Önce Hafızaya (RAM) al
+    // DÜZELTME: Anahtar ismini 'role' (İngilizce) yaptık ki backend ile aynı olsun.
     _aktifKullanici = {
-      'id': apiCevabi['user']['id'] ?? apiCevabi['user']['userId'], // API bazen farklı dönebilir garantiye alalım
+      'id': apiCevabi['user']['id'] ?? apiCevabi['user']['userId'], 
       'isim': apiCevabi['user']['fullName'],
-      'telefon': apiCevabi['user']['phoneNumber'] ?? apiCevabi['user']['phone'], // API uyumu
+      'telefon': apiCevabi['user']['phoneNumber'] ?? apiCevabi['user']['phone'], 
       'email': apiCevabi['user']['email'] ?? "",
-      'rol': apiCevabi['user']['role'],
+      'role': apiCevabi['user']['role'], // ARTIK 'role' ANAHTARINI KULLANIYORUZ
       'token': apiCevabi['token']
     };
 
@@ -26,7 +31,8 @@ class KimlikServisi {
       await _storage.write(key: 'user_name', value: _aktifKullanici!['isim']);
       await _storage.write(key: 'user_email', value: _aktifKullanici!['email']);
       await _storage.write(key: 'user_phone', value: _aktifKullanici!['telefon'] ?? "");
-      await _storage.write(key: 'user_role', value: _aktifKullanici!['rol'] ?? "User");
+      // Storage'a kaydederken null kontrolü yapıyoruz
+      await _storage.write(key: 'user_role', value: _aktifKullanici!['role'] ?? "oyuncu");
     }
   }
 
@@ -50,7 +56,7 @@ class KimlikServisi {
         'isim': name ?? 'Kullanıcı', 
         'email': email ?? '',
         'telefon': phone ?? '',
-        'rol': role ?? 'User', 
+        'role': role ?? 'oyuncu', // DÜZELTME: Burada da 'role' kullanıyoruz
         'token': token
       };
       return true;
@@ -64,16 +70,25 @@ class KimlikServisi {
     _aktifKullanici = null;
   }
 
-  // Getterlar
+  // --- GETTERLAR (YETKİ KONTROLLERİ) ---
+  
+  // Admin kontrolü artık 'role' anahtarına bakıyor
   static bool get isAdmin {
     if (_aktifKullanici == null) return false;
-    final rol = _aktifKullanici!['rol'].toString().toLowerCase();
-    return rol == 'admin';
+    
+    // Hem 'role' hem 'rol' (eski kod kalıntısı varsa) kontrol et, garanti olsun.
+    final rolDegeri = _aktifKullanici!['role'] ?? _aktifKullanici!['rol'];
+    
+    // Küçük harfe çevirip kontrol et
+    return rolDegeri?.toString().toLowerCase() == 'admin';
   }
 
   static bool get isIsletme {
     if (_aktifKullanici == null) return false;
-    final rol = _aktifKullanici!['rol'].toString().toLowerCase();
-    return rol == 'sahasahibi' || rol == 'isletme';
+    
+    final rolDegeri = _aktifKullanici!['role'] ?? _aktifKullanici!['rol'];
+    final rolStr = rolDegeri?.toString().toLowerCase();
+    
+    return rolStr == 'sahasahibi' || rolStr == 'isletme';
   }
 }

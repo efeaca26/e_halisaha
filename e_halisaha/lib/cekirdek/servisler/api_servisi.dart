@@ -6,11 +6,42 @@ class ApiServisi {
   // Emülatör için 10.0.2.2, Port: 5216 (Senin verdiğin)
   static const String _baseUrl = "http://10.0.2.2:5216/api";
 
-  // --- GİRİŞ YAP ---
+  // // --- GİRİŞ YAP ---
+  // Future<bool> girisYap(String email, String password) async {
+  //   try {
+  //     final url = Uri.parse('$_baseUrl/Users/Login');
+      
+  //     final response = await http.post(
+  //       url,
+  //       headers: {"Content-Type": "application/json"},
+  //       body: jsonEncode({
+  //         "email": email,
+  //         "password": password,
+  //       }),
+  //     );
+
+  //     if (response.statusCode == 200) {
+  //       final data = jsonDecode(response.body);
+  //       // Token ve kullanıcı bilgilerini telefona kaydet
+  //       await KimlikServisi.girisYapveKaydet(data);
+  //       return true;
+  //     }
+  //     return false;
+  //   } catch (e) {
+  //     print("Giriş Hatası: $e");
+  //     return false;
+  //   }
+  // }
+
+  // --- GİRİŞ YAP (DEBUG MODLU) ---
   Future<bool> girisYap(String email, String password) async {
     try {
-      final url = Uri.parse('$_baseUrl/Users/Login');
+      const String port = "5216"; 
+      final url = Uri.parse("http://10.0.2.2:$port/api/Users/Login");
       
+      print("---- GİRİŞ DENEMESİ BAŞLIYOR ----");
+      print("URL: $url");
+
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
@@ -20,30 +51,69 @@ class ApiServisi {
         }),
       );
 
+      print("Sunucu Cevap Kodu: ${response.statusCode}");
+      print("Sunucu Cevabı: ${response.body}");
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        // Token ve kullanıcı bilgilerini telefona kaydet
+        
+        if (data['user'] == null) {
+          print("HATA: Sunucu 'user' bilgisi göndermedi! Backend kodunu kontrol et.");
+          return false;
+        }
+
         await KimlikServisi.girisYapveKaydet(data);
+        print("---- GİRİŞ BAŞARILI ----");
         return true;
+      } else {
+        print("---- GİRİŞ BAŞARISIZ ----");
+        return false;
       }
-      return false;
     } catch (e) {
-      print("Giriş Hatası: $e");
+      print("---- BAĞLANTI HATASI ----");
+      print("Hata Detayı: $e");
       return false;
     }
   }
 
-  // --- KAYIT OL ---
+  // // --- KAYIT OL ---
+  // Future<bool> kayitOl(String adSoyad, String telefon, String sifre, bool isletmeMi) async {
+  //   try {
+  //     final url = Uri.parse('$_baseUrl/Users');
+      
+  //     final response = await http.post(
+  //       url,
+  //       headers: {"Content-Type": "application/json"},
+  //       body: jsonEncode({
+  //         "fullName": adSoyad,
+  //         "email": "$telefon@ehali.com", // E-posta yerine telefon formatı
+  //         "passwordHash": sifre,
+  //         "phoneNumber": telefon,
+  //         "role": isletmeMi ? "isletme" : "oyuncu",
+  //         "createdAt": DateTime.now().toIso8601String()
+  //       }),
+  //     );
+
+  //     return response.statusCode == 201 || response.statusCode == 200;
+  //   } catch (e) {
+  //     print("Kayıt Hatası: $e");
+  //     return false;
+  //   }
+  // }
+
+  // --- KAYIT OL (DEBUG MODLU) ---
   Future<bool> kayitOl(String adSoyad, String telefon, String sifre, bool isletmeMi) async {
     try {
       final url = Uri.parse('$_baseUrl/Users');
       
+      print("Kayıt İsteği Gönderiliyor..."); // Konsola yaz
+
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "fullName": adSoyad,
-          "email": "$telefon@ehali.com", // E-posta yerine telefon formatı
+          "email": "$telefon@ehali.com", // Telefonu email yapıyoruz
           "passwordHash": sifre,
           "phoneNumber": telefon,
           "role": isletmeMi ? "isletme" : "oyuncu",
@@ -51,7 +121,12 @@ class ApiServisi {
         }),
       );
 
-      return response.statusCode == 201 || response.statusCode == 200;
+      print("Sunucu Cevabı (${response.statusCode}): ${response.body}"); // HATA VARSA BURADA YAZAR!
+
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        return true;
+      }
+      return false;
     } catch (e) {
       print("Kayıt Hatası: $e");
       return false;
@@ -130,15 +205,6 @@ class ApiServisi {
     return null;
   }
 
-  // --- YENİ EKLENENLER (ADMİN İÇİN) ---
-  Future<List<dynamic>> tumKullanicilariGetir() async {
-    try {
-      final response = await http.get(Uri.parse('$_baseUrl/Users'));
-      if (response.statusCode == 200) return jsonDecode(response.body);
-    } catch (e) { print("Kullanıcı Listesi Hatası: $e"); }
-    return [];
-  }
-
   Future<bool> rolGuncelle(int userId, Map<String, dynamic> veriler, String yeniRol) async {
     try {
       veriler['userId'] = userId;
@@ -170,5 +236,100 @@ class ApiServisi {
       final response = await http.delete(Uri.parse('$_baseUrl/SavedCards/$id'));
       return response.statusCode == 200 || response.statusCode == 204;
     } catch (e) {} return false;
+  }
+  // --- ADMIN FONKSİYONLARI (Bunlardan sadece 1 tane olmalı) ---
+
+  // Tüm kullanıcıları getir
+  Future<List<dynamic>> tumKullanicilariGetir() async {
+    try {
+      final response = await http.get(Uri.parse('$_baseUrl/Users'));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return [];
+    } catch (e) {
+      print("Kullanıcıları getirme hatası: $e");
+      return [];
+    }
+  }
+
+  // Kullanıcı sil
+  Future<bool> kullaniciSil(int id) async {
+    try {
+      final response = await http.delete(Uri.parse('$_baseUrl/Users/$id'));
+      return response.statusCode == 204 || response.statusCode == 200;
+    } catch (e) {
+      print("Silme hatası: $e");
+      return false;
+    }
+  }
+
+  // Rezervasyon sil
+  Future<bool> rezervasyonSil(int id) async {
+     try {
+      final response = await http.delete(Uri.parse('$_baseUrl/Reservations/$id'));
+      return response.statusCode == 204 || response.statusCode == 200;
+    } catch (e) {
+      print("Rezervasyon silme hatası: $e");
+      return false;
+    }
+  }
+  // --- YENİ ADMİN FONKSİYONLARI ---
+
+  // 1. Kullanıcı Rolünü Değiştir
+  Future<bool> kullaniciRoluGuncelle(int userId, String yeniRol) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$_baseUrl/Users/ChangeRole/$userId'),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(yeniRol), // Sadece string olarak gönderiyoruz
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print("Rol güncelleme hatası: $e");
+      return false;
+    }
+  }
+
+  // 2. Tüm Sahaları Getir
+  Future<List<dynamic>> tumSahalariGetir() async {
+    try {
+      final response = await http.get(Uri.parse('$_baseUrl/Fields')); // Controller adın 'Fields' ise
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return [];
+    } catch (e) {
+      print("Sahaları getirme hatası: $e");
+      return [];
+    }
+  }
+
+  // 3. Tüm Rezervasyonları Getir
+  Future<List<dynamic>> tumRezervasyonlariGetir() async {
+    try {
+      final response = await http.get(Uri.parse('$_baseUrl/Reservations'));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+      return [];
+    } catch (e) {
+      print("Rezervasyonları getirme hatası: $e");
+      return [];
+    }
+  }
+  // --- ADMIN: KULLANICIYI DÜZENLE (FULL YETKİ) ---
+  Future<bool> kullaniciBilgileriniGuncelle(int id, Map<String, dynamic> veriler) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$_baseUrl/Users/AdminUpdate/$id'),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(veriler),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print("Güncelleme hatası: $e");
+      return false;
+    }
   }
 }

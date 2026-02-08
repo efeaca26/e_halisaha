@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../modeller/takim_modeli.dart';
+import '../../modeller/takim_modeli.dart'; // Model dosyasını içeri aldık
 
 class RakipBulEkrani extends StatefulWidget {
   const RakipBulEkrani({super.key});
@@ -9,139 +9,123 @@ class RakipBulEkrani extends StatefulWidget {
 }
 
 class _RakipBulEkraniState extends State<RakipBulEkrani> {
-  // SAHTE RAKİP LİSTESİ
-  final List<TakimModeli> _rakipler = [
-    TakimModeli(isim: "Gebze Gücü", kaptan: "Ahmet K.", seviye: 4.5, logoUrl: "https://ui-avatars.com/api/?name=G+G&background=red&color=fff", oyuncuSayisi: 7),
-    TakimModeli(isim: "Yıldızlar FC", kaptan: "Mehmet Y.", seviye: 3.8, logoUrl: "https://ui-avatars.com/api/?name=Y+F&background=0D8ABC&color=fff", oyuncuSayisi: 7),
-    TakimModeli(isim: "Demir Kramponlar", kaptan: "Ali V.", seviye: 5.0, logoUrl: "https://ui-avatars.com/api/?name=D+K&background=333&color=fff", oyuncuSayisi: 11),
-    TakimModeli(isim: "Genç Yetenekler", kaptan: "Sinan O.", seviye: 2.5, logoUrl: "https://ui-avatars.com/api/?name=G+Y&background=orange&color=fff", oyuncuSayisi: 7),
-    TakimModeli(isim: "Mahallenin Abileri", kaptan: "Kemal T.", seviye: 4.2, logoUrl: "https://ui-avatars.com/api/?name=M+A&background=purple&color=fff", oyuncuSayisi: 11),
+  // Örnek veriler (Hata veren kısım burasıydı, şimdi düzeldi)
+  final List<TakimModeli> takimlar = [
+    TakimModeli(
+      id: "1",
+      isim: "Yıldırım Spor",
+      seviye: "Dişli",
+      yildiz: 4.5,
+      kaptanId: "101",
+    ),
+    TakimModeli(
+      id: "2",
+      isim: "Kuzey Gücü",
+      seviye: "Amatör",
+      yildiz: 3.0,
+      kaptanId: "102",
+    ),
+    TakimModeli(
+      id: "3",
+      isim: "Atalanta FC",
+      seviye: "Pro",
+      yildiz: 5.0,
+      kaptanId: "103",
+    ),
+    TakimModeli(
+      id: "4",
+      isim: "Mahalle Gençlik",
+      seviye: "Amatör",
+      yildiz: 2.5,
+      kaptanId: "104",
+    ),
   ];
-
-  void _davetGonder(String takimAdi) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("$takimAdi takımına maç teklifi gönderildi! ⚔️"),
-        backgroundColor: const Color(0xFF22C55E),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text("Rakip Bul", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
+        title: const Text("Rakip Bul", style: TextStyle(color: Colors.white)),
+        backgroundColor: const Color(0xFF22C55E),
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: Column(
-        children: [
-          // --- FİLTRE KISMI ---
-          Container(
-            padding: const EdgeInsets.all(16),
-            color: Colors.white,
-            child: Row(
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Müsait Rakipler",
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.black87),
+            ),
+            const SizedBox(height: 10),
+            Expanded(
+              child: ListView.builder(
+                itemCount: takimlar.length,
+                itemBuilder: (context, index) {
+                  final takim = takimlar[index];
+                  return _takimKarti(takim);
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _takimKarti(TakimModeli takim) {
+    return Card(
+      elevation: 3,
+      margin: const EdgeInsets.only(bottom: 15),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(15),
+        leading: CircleAvatar(
+          radius: 30,
+          backgroundColor: Colors.green.shade100,
+          child: Text(
+            takim.isim[0], // Takım isminin baş harfi
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.green),
+          ),
+        ),
+        title: Text(
+          takim.isim,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 5),
+            Row(
               children: [
-                const Expanded(
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: "Takım ara...",
-                      prefixIcon: Icon(Icons.search),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
-                      contentPadding: EdgeInsets.symmetric(vertical: 0, horizontal: 10),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: Colors.grey[100], borderRadius: BorderRadius.circular(10)),
-                  child: const Icon(Icons.filter_list, color: Colors.grey),
-                ),
+                Icon(Icons.shield, size: 16, color: Colors.grey[600]),
+                const SizedBox(width: 5),
+                Text("Seviye: ${takim.seviye}", style: const TextStyle(color: Colors.grey)),
               ],
             ),
+            const SizedBox(height: 5),
+            Row(
+              children: [
+                const Icon(Icons.star, size: 18, color: Colors.amber),
+                const SizedBox(width: 5),
+                Text(takim.yildiz.toString(), style: const TextStyle(fontWeight: FontWeight.bold)),
+              ],
+            )
+          ],
+        ),
+        trailing: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF22C55E),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           ),
-          
-          // --- LİSTE ---
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _rakipler.length,
-              itemBuilder: (context, index) {
-                final takim = _rakipler[index];
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)],
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      children: [
-                        // LOGO
-                        CircleAvatar(
-                          radius: 30,
-                          backgroundImage: NetworkImage(takim.logoUrl),
-                        ),
-                        const SizedBox(width: 16),
-                        // BİLGİLER
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(takim.isim, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                              Text("Kaptan: ${takim.kaptan}", style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                              const SizedBox(height: 5),
-                              Row(
-                                children: [
-                                  // Seviye Yıldızı
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(color: Colors.amber.shade100, borderRadius: BorderRadius.circular(6)),
-                                    child: Row(
-                                      children: [
-                                        const Icon(Icons.star, size: 12, color: Colors.amber),
-                                        const SizedBox(width: 4),
-                                        Text("${takim.seviye}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.orange)),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  // Oyuncu Sayısı
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(6)),
-                                    child: Text("${takim.oyuncuSayisi} vs ${takim.oyuncuSayisi}", style: const TextStyle(fontSize: 10, color: Colors.blue, fontWeight: FontWeight.bold)),
-                                  ),
-                                ],
-                              )
-                            ],
-                          ),
-                        ),
-                        // DAVET BUTONU
-                        ElevatedButton(
-                          onPressed: () => _davetGonder(takim.isim),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
-                          ),
-                          child: const Text("Davet Et", style: TextStyle(color: Colors.white, fontSize: 12)),
-                        )
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
+          onPressed: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("${takim.isim} takımına maç teklifi gönderildi!")),
+            );
+          },
+          child: const Text("Maç Yap", style: TextStyle(color: Colors.white)),
+        ),
       ),
     );
   }

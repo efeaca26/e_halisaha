@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+// Dosya yollarını kendi projene göre kontrol et
 import '../../cekirdek/servisler/api_servisi.dart';
+import '../../cekirdek/servisler/kimlik_servisi.dart';
 import '../anasayfa/anasayfa_ekrani.dart';
+import '../admin/admin_ana_sayfa.dart'; 
 
 class GirisEkrani extends StatefulWidget {
   const GirisEkrani({super.key});
@@ -10,7 +13,6 @@ class GirisEkrani extends StatefulWidget {
 }
 
 class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin {
-  // API Servisini nesne olarak çağırıyoruz
   final ApiServisi _apiServisi = ApiServisi();
 
   late AnimationController _topKontrolcusu;
@@ -26,12 +28,11 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
   bool _girisSifreGizli = true; 
   bool _kayitSifreGizli = true; 
 
-  // Controllerlar
   final _girisController = TextEditingController(); 
   final _sifreController = TextEditingController();
   
   final _kayitIsimController = TextEditingController();
-  final _kayitEmailController = TextEditingController(); // E-posta için
+  final _kayitEmailController = TextEditingController();
   final _kayitTelefonController = TextEditingController();
   final _kayitSifreController = TextEditingController();
 
@@ -57,7 +58,110 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
     _icerikKontrolcusu.forward(); 
   }
 
-  // --- GİRİŞ YAP ---
+
+  // // GİRİŞ
+
+//   void _girisYap() async {
+
+//     if (_girisController.text.isEmpty || _sifreController.text.isEmpty) {
+
+//       _mesajGoster("Lütfen alanları doldurun", kirmizi: true);
+
+//       return;
+
+//     }
+
+
+
+//     setState(() => _yukleniyor = true);
+
+
+
+//     // 1. API İsteği
+
+//     print("--- GİRİŞ İSTEĞİ BAŞLIYOR ---");
+
+//     bool basarili = await _apiServisi.girisYap(
+
+//       _girisController.text.trim(),
+
+//       _sifreController.text.trim()
+
+//     );
+
+
+
+//     setState(() => _yukleniyor = false);
+
+
+
+//     if (basarili) {
+
+//       // 2. Kimlik Servisine Ne Kaydedildi?
+
+//       var aktifKullanici = KimlikServisi.aktifKullanici;
+
+      
+
+//       print("--- KİMLİK SERVİSİ RAPORU ---");
+
+//       print("Kayıtlı İsim: ${aktifKullanici?['isim']}");
+
+//       print("Kayıtlı Rol (Raw): ${aktifKullanici?['role']}"); // Burası null mı geliyor?
+
+//       print("Admin mi?: ${KimlikServisi.isAdmin}");
+
+//       print("------------------------------");
+
+
+
+//       if (mounted) {
+
+//         // ROL KONTROLÜ
+
+//         // Not: Veritabanında 'admin' küçük harf, burada da küçük harf kontrol ediyoruz.
+
+//         String rol = aktifKullanici?['role']?.toString().toLowerCase() ?? 'oyuncu';
+
+
+
+//         if (rol == 'admin') {
+
+//           print(">>> YÖNETİCİ SAYFASINA GİDİLİYOR >>>");
+
+//           Navigator.pushReplacement(
+
+//             context, 
+
+//             MaterialPageRoute(builder: (context) => AdminAnaSayfa())
+
+//           );
+
+//         } else {
+
+//           print(">>> OYUNCU SAYFASINA GİDİLİYOR (Rol: $rol) >>>");
+
+//           Navigator.pushReplacement(
+
+//             context, 
+
+//             MaterialPageRoute(builder: (context) => const AnasayfaEkrani())
+
+//           );
+
+//         }
+
+//       }
+
+//     } else {
+
+//       _mesajGoster("Giriş Başarısız!", kirmizi: true);
+
+//     }
+
+//   }
+
+  // --- GİRİŞ YAP (DEBUG VE FİXLENMİŞ VERSİYON) ---
   void _girisYap() async {
     if (_girisController.text.isEmpty || _sifreController.text.isEmpty) {
       _mesajGoster("Lütfen alanları doldurun", kirmizi: true);
@@ -66,24 +170,71 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
 
     setState(() => _yukleniyor = true);
 
-    // DÜZELTME: Artık boolean dönüyor (true/false)
-    bool basarili = await _apiServisi.girisYap(
-      _girisController.text.trim(),
-      _sifreController.text.trim()
-    );
+    print("--------------------------------------------------");
+    print("🚀 GİRİŞ İŞLEMİ BAŞLATILIYOR...");
+    print("📧 Email: ${_girisController.text.trim()}");
+    print("🔑 Şifre: ${_sifreController.text.trim()}");
 
-    setState(() => _yukleniyor = false);
+    try {
+      // 1. API İsteği
+      bool basarili = await _apiServisi.girisYap(
+        _girisController.text.trim(),
+        _sifreController.text.trim()
+      );
 
-    if (basarili) {
-      if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AnasayfaEkrani()));
-    } else {
-      _mesajGoster("Giriş Başarısız! E-posta veya şifre hatalı.", kirmizi: true);
+      setState(() => _yukleniyor = false);
+
+      if (basarili) {
+        print("✅ API 'Başarılı' döndü.");
+        
+        // Değişkeni burada tanımlıyoruz
+        var aktifKullanici = KimlikServisi.aktifKullanici;
+
+        // 2. Kimlik Servisine Ne Kaydedildi?
+        print("Admin Yetkisi Var Mı?: ${KimlikServisi.isAdmin}");
+        
+        print("🔍 KİMLİK SERVİSİ İNCELENİYOR:");
+        if (aktifKullanici != null) {
+          print("👤 İsim: ${aktifKullanici['isim']}");
+          print("🆔 ID: ${aktifKullanici['id']}");
+          // Hem 'role' hem 'rol' kontrolü (Debug için)
+          print("🎭 ROL (role): '${aktifKullanici['role']}'"); 
+          print("🎭 ROL (rol): '${aktifKullanici['rol']}'"); 
+        } else {
+          print("❌ HATA: Aktif Kullanıcı NULL!");
+        }
+
+        if (mounted) {
+          // --- KESİN YÖNLENDİRME ---
+          // String karmaşasına girmeden doğrudan getter kullanıyoruz
+          if (KimlikServisi.isAdmin) {
+            print("🛑 KARAR: YÖNETİCİ PANELİNE GİDİLİYOR...");
+            Navigator.pushReplacement(
+              context, 
+              MaterialPageRoute(builder: (context) => AdminAnaSayfa())
+            );
+          } else {
+            print("🏃 KARAR: OYUNCU SAYFASINA GİDİLİYOR...");
+            Navigator.pushReplacement(
+              context, 
+              MaterialPageRoute(builder: (context) => const AnasayfaEkrani())
+            );
+          }
+        }
+      } else {
+        print("❌ API 'Başarısız' döndü.");
+        _mesajGoster("Giriş Başarısız! E-posta veya şifre hatalı.", kirmizi: true);
+      }
+    } catch (e) {
+       print("💥 BÜYÜK HATA: $e");
+       setState(() => _yukleniyor = false);
     }
+    print("--------------------------------------------------");
   }
 
   // --- KAYIT OL ---
   void _kayitOl() async {
-    if (_kayitIsimController.text.isEmpty || _kayitTelefonController.text.isEmpty || _kayitSifreController.text.isEmpty) {
+    if (_kayitIsimController.text.isEmpty || _kayitTelefonController.text.isEmpty || _kayitSifreController.text.isEmpty || _kayitEmailController.text.isEmpty) {
       _mesajGoster("Eksik bilgi girdiniz", kirmizi: true);
       return;
     }
@@ -163,7 +314,7 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
                         ),
                         const SizedBox(height: 20),
                         SizedBox(
-                          height: 350,
+                          height: 400,
                           child: TabBarView(
                             controller: _tabController,
                             children: [_girisFormu(), _kayitFormu()],
@@ -202,7 +353,7 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
           controller: _girisController, 
           keyboardType: TextInputType.emailAddress, 
           decoration: const InputDecoration(
-            labelText: "E-Posta", // hintText yerine labelText
+            labelText: "E-Posta", 
             prefixIcon: Icon(Icons.email_outlined),
             border: OutlineInputBorder(), 
           )
@@ -212,7 +363,7 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
           controller: _sifreController, 
           obscureText: _girisSifreGizli, 
           decoration: InputDecoration(
-            labelText: "Şifre", // hintText yerine labelText
+            labelText: "Şifre", 
             prefixIcon: const Icon(Icons.lock_outline), 
             border: const OutlineInputBorder(),
             suffixIcon: IconButton(
@@ -240,7 +391,6 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
         children: [
           TextField(controller: _kayitIsimController, decoration: const InputDecoration(labelText: "Ad Soyad", prefixIcon: Icon(Icons.person_outline), border: OutlineInputBorder())),
           const SizedBox(height: 10),
-          // E-posta alanı eklendi (Backend istiyor)
           TextField(controller: _kayitEmailController, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: "E-Posta", prefixIcon: Icon(Icons.email_outlined), border: OutlineInputBorder())),
           const SizedBox(height: 10),
           TextField(

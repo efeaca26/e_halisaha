@@ -1,15 +1,15 @@
 class TakimModeli {
+  final String id;
   final String isim;
-  final String kaptan;
-  final double seviye; // 5 üzerinden yıldız
-  final String logoUrl; // Takım logosu
-  final int oyuncuSayisi; // 7v7, 11v11 tercihi
+  final String seviye; // Örn: "Amatör", "Dişli", "Pro"
+  final double yildiz; // 1-5 arası puan
+  final String kaptanId;
 
   TakimModeli({
+    required this.id,
     required this.isim,
-    required this.kaptan,
     required this.seviye,
-    required this.logoUrl,
-    required this.oyuncuSayisi,
+    required this.yildiz,
+    required this.kaptanId,
   });
 }
