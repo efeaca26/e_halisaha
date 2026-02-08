@@ -14,6 +14,8 @@ class GirisEkrani extends StatefulWidget {
 
 class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin {
   final ApiServisi _apiServisi = ApiServisi();
+  final _sahaAdiController = TextEditingController();
+  final _konumController = TextEditingController();
 
   late AnimationController _topKontrolcusu;
   late AnimationController _icerikKontrolcusu;
@@ -234,9 +236,18 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
 
   // --- KAYIT OL ---
   void _kayitOl() async {
-    if (_kayitIsimController.text.isEmpty || _kayitTelefonController.text.isEmpty || _kayitSifreController.text.isEmpty || _kayitEmailController.text.isEmpty) {
+    // Validasyonlar
+    if (_kayitIsimController.text.isEmpty || _kayitTelefonController.text.isEmpty || _kayitSifreController.text.isEmpty) {
       _mesajGoster("Eksik bilgi girdiniz", kirmizi: true);
       return;
+    }
+
+    // İşletme ise ek kontroller
+    if (isletmeModu) {
+      if (_sahaAdiController.text.isEmpty || _konumController.text.isEmpty) {
+        _mesajGoster("Lütfen Saha Adı ve Konum giriniz", kirmizi: true);
+        return;
+      }
     }
 
     setState(() => _yukleniyor = true);
@@ -245,13 +256,19 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
       _kayitIsimController.text.trim(),
       _kayitTelefonController.text.trim(), 
       _kayitSifreController.text.trim(),
-      isletmeModu
+      isletmeModu,
+      sahaAdi: isletmeModu ? _sahaAdiController.text.trim() : null,
+      konum: isletmeModu ? _konumController.text.trim() : null,
     );
 
     setState(() => _yukleniyor = false);
 
     if (basarili) {
-      _mesajGoster("Kayıt Başarılı! Şimdi giriş yapabilirsin.");
+      if (isletmeModu) {
+        _mesajGoster("Kayıt alındı! Admin onayından sonra giriş yapabileceksiniz.");
+      } else {
+        _mesajGoster("Kayıt Başarılı! Giriş yapabilirsiniz.");
+      }
       _tabController.animateTo(0);
     } else {
       _mesajGoster("Kayıt olunamadı.", kirmizi: true);
@@ -389,17 +406,30 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
     return SingleChildScrollView(
       child: Column(
         children: [
-          TextField(controller: _kayitIsimController, decoration: const InputDecoration(labelText: "Ad Soyad", prefixIcon: Icon(Icons.person_outline), border: OutlineInputBorder())),
+          TextField(controller: _kayitIsimController, decoration: const InputDecoration(labelText: "Ad Soyad", prefixIcon: Icon(Icons.person), border: OutlineInputBorder())),
           const SizedBox(height: 10),
-          TextField(controller: _kayitEmailController, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: "E-Posta", prefixIcon: Icon(Icons.email_outlined), border: OutlineInputBorder())),
+          TextField(controller: _kayitTelefonController, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: "Telefon", prefixIcon: Icon(Icons.phone), border: OutlineInputBorder())),
           const SizedBox(height: 10),
-          TextField(
-            controller: _kayitTelefonController, 
-            keyboardType: TextInputType.phone,
-            decoration: const InputDecoration(labelText: "Telefon", prefixIcon: Icon(Icons.phone), border: OutlineInputBorder())
-          ),
-          const SizedBox(height: 10),
-          TextField(controller: _kayitSifreController, obscureText: _kayitSifreGizli, decoration: InputDecoration(labelText: "Şifre", prefixIcon: const Icon(Icons.lock_outline), border: const OutlineInputBorder(), suffixIcon: IconButton(icon: Icon(_kayitSifreGizli ? Icons.visibility_off : Icons.visibility), onPressed: () => setState(() => _kayitSifreGizli = !_kayitSifreGizli)))),
+          TextField(controller: _kayitSifreController, obscureText: _kayitSifreGizli, decoration: const InputDecoration(labelText: "Şifre", prefixIcon: Icon(Icons.lock), border: OutlineInputBorder())),
+          
+          // --- İŞLETME İSE EKSTRA ALANLAR GÖZÜKSÜN ---
+          if (isletmeModu) ...[
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(color: Colors.green[50], borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.green)),
+              child: Column(
+                children: [
+                  const Text("Saha Bilgileri", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                  const SizedBox(height: 10),
+                  TextField(controller: _sahaAdiController, decoration: const InputDecoration(labelText: "Saha Adı", prefixIcon: Icon(Icons.stadium), border: OutlineInputBorder())),
+                  const SizedBox(height: 10),
+                  TextField(controller: _konumController, decoration: const InputDecoration(labelText: "Konum (İl/İlçe)", prefixIcon: Icon(Icons.map), border: OutlineInputBorder())),
+                ],
+              ),
+            ),
+          ],
+          
           const SizedBox(height: 20),
           _yukleniyor ? const CircularProgressIndicator() : ElevatedButton(onPressed: _kayitOl, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF22C55E), minimumSize: const Size(double.infinity, 50)), child: const Text("KAYIT OL", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
         ],

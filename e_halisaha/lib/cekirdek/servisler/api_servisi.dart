@@ -101,32 +101,31 @@ class ApiServisi {
   //   }
   // }
 
-  // --- KAYIT OL (DEBUG MODLU) ---
-  Future<bool> kayitOl(String adSoyad, String telefon, String sifre, bool isletmeMi) async {
+  // --- KAYIT OL
+  Future<bool> kayitOl(String adSoyad, String telefon, String sifre, bool isletmeMi, {String? sahaAdi, String? konum}) async {
     try {
       final url = Uri.parse('$_baseUrl/Users');
       
-      print("Kayıt İsteği Gönderiliyor..."); // Konsola yaz
-
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "fullName": adSoyad,
-          "email": "$telefon@ehali.com", // Telefonu email yapıyoruz
-          "passwordHash": sifre,
           "phoneNumber": telefon,
+          "password": sifre,
           "role": isletmeMi ? "isletme" : "oyuncu",
-          "createdAt": DateTime.now().toIso8601String()
+          // İşletme ise bu verileri gönder, değilse null gider (sorun olmaz)
+          "pitchName": sahaAdi, 
+          "location": konum
         }),
       );
-
-      print("Sunucu Cevabı (${response.statusCode}): ${response.body}"); // HATA VARSA BURADA YAZAR!
-
+      
       if (response.statusCode == 201 || response.statusCode == 200) {
         return true;
+      } else {
+        print("Kayıt Başarısız: ${response.body}");
+        return false;
       }
-      return false;
     } catch (e) {
       print("Kayıt Hatası: $e");
       return false;
@@ -342,5 +341,14 @@ class ApiServisi {
       print("Güncelleme hatası: $e");
       return false;
     }
+  }
+  // Onay Bekleyenleri Getir (isApproved = false olanlar)
+  // Not: Backend'de buna özel endpoint yazmak gerekebilir veya tüm kullanıcıları çekip filter yapabiliriz.
+  // Şimdilik tüm kullanıcıları çekip Flutter'da filtreleyeceğiz.
+  
+  // Kullanıcıyı Onayla
+  Future<bool> kullaniciyiOnayla(int userId) async {
+    // Backend'deki AdminUpdate metodunu kullanarak IsApproved = true yapacağız
+    return await kullaniciBilgileriniGuncelle(userId, {"isApproved": true});
   }
 }

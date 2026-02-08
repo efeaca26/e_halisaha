@@ -4,7 +4,6 @@ import '../../cekirdek/servisler/kimlik_servisi.dart';
 import '../giris/giris_ekrani.dart';
 
 class AdminAnaSayfa extends StatefulWidget {
-  // Key parametresi eklendi (Hata: use_key_in_widget_constructors)
   const AdminAnaSayfa({super.key});
 
   @override
@@ -55,13 +54,82 @@ class _AdminAnaSayfaState extends State<AdminAnaSayfa> {
               ikon: Icons.security, 
               renk: Colors.blueGrey),
           const SizedBox(height: 20),
+          
+          // ONAY BEKLEYENLER KISMI
+          _onayBekleyenlerListesi(),
+
           const _Baslik(text: "👤 Kullanıcı İşlemleri"),
           _kullaniciListesiKart(),
+          
           const SizedBox(height: 20),
           const _Baslik(text: "🏟️ Saha Listesi (Canlı)"),
           _sahaListesiKart(),
         ],
       ),
+    );
+  }
+
+  // --- ONAY BEKLEYEN İŞLETMELER ---
+  Widget _onayBekleyenlerListesi() {
+    return FutureBuilder<List<dynamic>>(
+      future: _apiServisi.tumKullanicilariGetir(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return const SizedBox();
+        
+        // isApproved == false olanları bul
+        var bekleyenler = snapshot.data!.where((u) => u['isApproved'] == false).toList();
+
+        if (bekleyenler.isEmpty) return const SizedBox();
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 20),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.orange[50], 
+            border: Border.all(color: Colors.orange), 
+            borderRadius: BorderRadius.circular(10)
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("⚠️ Onay Bekleyen İşletmeler", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+              const Divider(),
+              ...bekleyenler.map((user) => ListTile(
+                title: Text(user['fullName'] ?? 'İsimsiz'),
+                subtitle: Text("Tel: ${user['phoneNumber']}"),
+                trailing: ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                  onPressed: () async {
+                    // Kullanıcıyı onayla (isApproved: true)
+                    // Rolü koruyarak sadece onayı güncelliyoruz
+                    bool sonuc = await _apiServisi.kullaniciBilgileriniGuncelle(
+                      user['userId'] ?? user['id'], 
+                      {
+                        "role": user['role'], 
+                        "isApproved": true,
+                        // Mevcut bilgileri korumak için tekrar gönderiyoruz (Backend'e göre değişebilir ama güvenli yol)
+                        "fullName": user['fullName'],
+                        "email": user['email'],
+                        "phoneNumber": user['phoneNumber']
+                      } 
+                    );
+                    
+                    if (!mounted) return;
+
+                    if (sonuc) {
+                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("İşletme Onaylandı!")));
+                       _sayfayiYenile();
+                    } else {
+                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Hata oluştu!")));
+                    }
+                  }, 
+                  child: const Text("ONAYLA", style: TextStyle(color: Colors.white))
+                ),
+              )).toList()
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -152,7 +220,6 @@ class _AdminAnaSayfaState extends State<AdminAnaSayfa> {
   }
 
   void _kullaniciDuzenleDialog(dynamic user) {
-    // Alt çizgili yerel değişkenler düzeltildi (no_leading_underscores_for_local_identifiers)
     final isimController = TextEditingController(text: user['fullName']);
     final emailController = TextEditingController(text: user['email']);
     final telController = TextEditingController(text: user['phoneNumber']);
@@ -172,9 +239,9 @@ class _AdminAnaSayfaState extends State<AdminAnaSayfa> {
                 TextField(controller: telController, decoration: const InputDecoration(labelText: "Telefon", icon: Icon(Icons.phone))),
                 const SizedBox(height: 20),
                 DropdownButtonFormField<String>(
-                  initialValue: secilenRol, // Deprecated 'value' yerine 'initialValue' (Hata: deprecated_member_use)
+                  value: secilenRol, 
                   decoration: const InputDecoration(labelText: "Rolü Seç", border: OutlineInputBorder()),
-                  items: ['oyuncu', 'sahasahibi', 'admin'].map((rol) {
+                  items: ['oyuncu', 'sahasahibi', 'admin', 'isletme'].map((rol) {
                     return DropdownMenuItem(value: rol, child: Text(rol.toUpperCase()));
                   }).toList(),
                   onChanged: (val) => secilenRol = val!,
@@ -191,13 +258,13 @@ class _AdminAnaSayfaState extends State<AdminAnaSayfa> {
                   "fullName": isimController.text,
                   "email": emailController.text,
                   "phoneNumber": telController.text,
-                  "role": secilenRol
+                  "role": secilenRol,
+                  "isApproved": user['isApproved'] // Mevcut onay durumunu koru
                 };
 
                 Navigator.pop(ctx);
                 bool sonuc = await _apiServisi.kullaniciBilgileriniGuncelle(user['userId'] ?? user['id'], guncelVeri);
                 
-                // mounted kontrolü eklendi (Hata: use_build_context_synchronously)
                 if (!mounted) return;
                 
                 if (sonuc) {
@@ -229,7 +296,7 @@ class _AdminAnaSayfaState extends State<AdminAnaSayfa> {
               Navigator.pop(ctx);
               bool silindi = await _apiServisi.sahaSil(saha['pitchId'] ?? saha['id']);
               
-              if (!mounted) return; // Async sonrası mounted kontrolü
+              if (!mounted) return;
 
               if (silindi) {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Saha silindi!")));
@@ -274,6 +341,7 @@ class _AdminAnaSayfaState extends State<AdminAnaSayfa> {
   Color _rolRengi(String? rol) {
     switch (rol) {
       case 'admin': return Colors.red;
+      case 'isletme': 
       case 'sahasahibi': return Colors.orange;
       default: return Colors.blue;
     }
