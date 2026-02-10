@@ -14,21 +14,24 @@ class KimlikServisi {
     print("API'den Gelen Rol: ${apiCevabi['user']['role']}");
 
     // 1. Önce Hafızaya (RAM) al
+    var user = apiCevabi['user'];
+    var token = apiCevabi['token'];
+
     _aktifKullanici = {
-      'id': apiCevabi['user']['id'] ?? apiCevabi['user']['userId'], 
-      'userId': apiCevabi['user']['id'] ?? apiCevabi['user']['userId'], // userId anahtarını da ekleyelim, erişim kolay olsun
-      'fullName': apiCevabi['user']['fullName'], // İsim uyumluluğu için
-      'isim': apiCevabi['user']['fullName'],
-      'telefon': apiCevabi['user']['phoneNumber'] ?? apiCevabi['user']['phone'],
-      'phoneNumber': apiCevabi['user']['phoneNumber'] ?? apiCevabi['user']['phone'],
-      'email': apiCevabi['user']['email'] ?? "",
-      'role': apiCevabi['user']['role'], 
-      'token': apiCevabi['token']
+      'id': user['id'] ?? user['userId'], 
+      'userId': user['id'] ?? user['userId'], 
+      'fullName': user['fullName'],
+      'isim': user['fullName'],
+      'telefon': user['phoneNumber'] ?? user['phone'],
+      'phoneNumber': user['phoneNumber'] ?? user['phone'],
+      'email': user['email'] ?? "",
+      'role': user['role'], 
+      'token': token
     };
 
     // 2. Sonra Kalıcı Hafızaya (Disk) Yaz
-    if (apiCevabi['token'] != null) {
-      await _storage.write(key: 'jwt_token', value: apiCevabi['token']);
+    if (token != null) {
+      await _storage.write(key: 'jwt_token', value: token);
       await _storage.write(key: 'user_id', value: _aktifKullanici!['id'].toString());
       await _storage.write(key: 'user_name', value: _aktifKullanici!['isim']);
       await _storage.write(key: 'user_email', value: _aktifKullanici!['email']);

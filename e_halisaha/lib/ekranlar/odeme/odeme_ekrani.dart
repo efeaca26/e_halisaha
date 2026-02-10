@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart'; 
 import 'dart:math';
 import 'dart:async';
 import '../../modeller/saha_modeli.dart';
-import '../../cekirdek/servisler/api_servisi.dart'; // YENİ: API Servisi eklendi
+import '../../cekirdek/servisler/api_servisi.dart';
 import '../anasayfa/anasayfa_ekrani.dart';
 
 class OdemeEkrani extends StatefulWidget {
@@ -25,15 +26,27 @@ class OdemeEkrani extends StatefulWidget {
 }
 
 class _OdemeEkraniState extends State<OdemeEkrani> {
-  // API Servisini Çağırıyoruz
   final ApiServisi _apiServisi = ApiServisi();
 
   bool _yukleniyor = false;
-  int _secilenYontem = 0; // 0: Kart Tamamı, 1: Kart Kapora, 2: IBAN
+  int _secilenYontem = 0; 
   bool _arkaYuzMu = false;
 
   Timer? _zamanlayici;
-  int _kalanSaniye = 300; // 5 Dakika
+  int _kalanSaniye = 300; 
+
+  // --- KART MASKELERİ ---
+  var kartMaskesi = MaskTextInputFormatter(
+    mask: '#### #### #### ####', 
+    filter: { "#": RegExp(r'[0-9]') },
+    type: MaskAutoCompletionType.lazy
+  );
+
+  var tarihMaskesi = MaskTextInputFormatter(
+    mask: '##/##', 
+    filter: { "#": RegExp(r'[0-9]') },
+    type: MaskAutoCompletionType.lazy
+  );
 
   final TextEditingController _kartNoController = TextEditingController();
   final TextEditingController _isimController = TextEditingController();
@@ -80,7 +93,6 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
     return "${dakika.toString().padLeft(2, '0')}:${saniye.toString().padLeft(2, '0')}";
   }
 
-  // --- KART İLE ÖDEME VE KAYIT ---
   void _islemYap() async {
     if (_secilenYontem == 2) {
        _ibanIleOde();
@@ -94,14 +106,12 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
 
     setState(() => _yukleniyor = true);
     
-    // API için verileri hazırla
     int sahaId = int.tryParse(widget.saha.id) ?? 0;
-    int saatInt = int.parse(widget.saat.split(":")[0]); // "19:00" -> 19
+    int saatInt = int.parse(widget.saat.split(":")[0]); 
 
-    // GERÇEK VERİTABANINA KAYIT
     bool basarili = await _apiServisi.rezervasyonYap(
       sahaId, 
-      1, // Şimdilik ID'si 1 olan kullanıcı adına yapıyoruz
+      1, 
       widget.tarih, 
       saatInt, 
       "Kredi Kartı - ${_isimController.text}"
@@ -116,14 +126,10 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
     }
   }
 
-  // --- IBAN İLE KAYIT ---
   void _ibanIleOde() async {
-    // API için verileri hazırla
     int sahaId = int.tryParse(widget.saha.id) ?? 0;
     int saatInt = int.parse(widget.saat.split(":")[0]);
 
-    // IBAN Ödemesi için rezervasyon oluştur
-    // Not: Normalde "Pending" (Beklemede) durumu gönderilmeli ama şimdilik direkt kaydediyoruz.
     await _apiServisi.rezervasyonYap(
       sahaId, 
       1, 
@@ -157,22 +163,19 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
     if (!mounted) return;
     _zamanlayici?.cancel();
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mesaj), backgroundColor: Colors.green));
-    // Ana sayfaya dönüyoruz, böylece listeler yenilenir
     Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const AnasayfaEkrani()), (route) => false);
   }
 
   @override
   Widget build(BuildContext context) {
-    // --- FİYAT VE KALAN BORÇ HESAPLAMA ---
     double toplamTutar = widget.sonTutar;
     double odenecekTutar = toplamTutar; 
-    double kalanTutar = 0; // Sahada ödenecek kısım
+    double kalanTutar = 0; 
     
-    if (_secilenYontem == 1) { // Kapora ise
+    if (_secilenYontem == 1) { 
       odenecekTutar = toplamTutar * 0.30;
-      kalanTutar = toplamTutar - odenecekTutar; // Geriye kalan borç
+      kalanTutar = toplamTutar - odenecekTutar; 
     }
-    // -------------------------------------
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -191,7 +194,6 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            // --- KART GÖRSELİ ---
             if (_secilenYontem != 2) 
               TweenAnimationBuilder(
                 tween: Tween<double>(begin: 0, end: _arkaYuzMu ? 1 : 0),
@@ -211,7 +213,6 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
             
             const SizedBox(height: 20),
 
-            // --- DETAYLI FİYAT BİLGİSİ KUTUSU ---
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -309,7 +310,16 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Text(_ibanNo, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                            // DÜZELTME BURADA: Expanded ve FittedBox eklendi
+                            Expanded(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown, // Sığmazsa küçült
+                                child: Text(
+                                  _ibanNo, 
+                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1)
+                                ),
+                              ),
+                            ),
                             const SizedBox(width: 10),
                             const Icon(Icons.copy, size: 18, color: Colors.green),
                           ],
@@ -321,14 +331,13 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
               )
             ] 
             else ...[
-              // KART GİRİŞ ALANLARI
               const SizedBox(height: 10),
               _inputAlani(_isimController, "Kart Üzerindeki İsim", Icons.person, limit: 26),
               const SizedBox(height: 15),
-              _inputAlani(_kartNoController, "Kart Numarası", Icons.numbers, isNumber: true, isCard: true),
+              _inputAlani(_kartNoController, "Kart Numarası", Icons.credit_card, isCard: true), 
               const SizedBox(height: 15),
               Row(children: [
-                Expanded(child: _inputAlani(_sktController, "AA/YY", Icons.calendar_month, isNumber: true, isDate: true)),
+                Expanded(child: _inputAlani(_sktController, "AA/YY", Icons.calendar_month, isDate: true)), 
                 const SizedBox(width: 15),
                 Expanded(child: _inputAlani(_cvvController, "CVV", Icons.lock, isNumber: true, limit: 3, focusNode: _cvvFocus)),
               ]),
@@ -357,7 +366,6 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
     );
   }
 
-  // --- KART GÖRSELLERİ (DEĞİŞMEDİ) ---
   Widget _kartOnYuz() {
     return Container(
       height: 220, width: double.infinity,
@@ -372,7 +380,10 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           const Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Icon(Icons.nfc, color: Colors.white70, size: 35), Icon(Icons.credit_card, color: Colors.white, size: 35)]),
-          Text(_kartNoController.text.isEmpty ? "**** **** **** ****" : _kartNoController.text, style: const TextStyle(color: Colors.white, fontSize: 22, letterSpacing: 2, fontFamily: 'Courier', fontWeight: FontWeight.bold)),
+          Text(
+            _kartNoController.text.isEmpty ? "**** **** **** ****" : _kartNoController.text, 
+            style: const TextStyle(color: Colors.white, fontSize: 22, letterSpacing: 2, fontFamily: 'Courier', fontWeight: FontWeight.bold)
+          ),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -417,52 +428,17 @@ class _OdemeEkraniState extends State<OdemeEkrani> {
 
   Widget _inputAlani(TextEditingController controller, String hint, IconData icon, {bool isNumber = false, int? limit, bool isCard = false, bool isDate = false, FocusNode? focusNode}) {
     return TextField(
-      controller: controller, focusNode: focusNode, keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+      controller: controller, 
+      focusNode: focusNode, 
+      keyboardType: (isNumber || isCard || isDate) ? TextInputType.number : TextInputType.text,
       onChanged: (val) => setState(() {}),
       inputFormatters: [
-        if (isNumber) FilteringTextInputFormatter.digitsOnly,
+        if (isNumber && !isCard && !isDate) FilteringTextInputFormatter.digitsOnly,
+        if (isCard) kartMaskesi,
+        if (isDate) tarihMaskesi,
         if (limit != null) LengthLimitingTextInputFormatter(limit),
-        if (isCard) _KartFormatlayici(), 
-        if (isCard) LengthLimitingTextInputFormatter(19),
-        if (isDate) _TarihFormatlayici(),
-        if (isDate) LengthLimitingTextInputFormatter(5),
       ],
       decoration: InputDecoration(prefixIcon: Icon(icon), hintText: hint, filled: true, fillColor: Theme.of(context).cardColor, border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none)),
     );
-  }
-}
-
-// --- FORMATLAYICILAR ---
-class _KartFormatlayici extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    if (newValue.text.length < oldValue.text.length) return newValue;
-    var text = newValue.text;
-    if (newValue.selection.baseOffset == 0) return newValue;
-    var buffer = StringBuffer();
-    for (int i = 0; i < text.length; i++) {
-      buffer.write(text[i]);
-      var nonZeroIndex = i + 1;
-      if (nonZeroIndex % 4 == 0 && nonZeroIndex != text.length) buffer.write(' ');
-    }
-    var string = buffer.toString();
-    return newValue.copyWith(text: string, selection: TextSelection.collapsed(offset: string.length));
-  }
-}
-
-class _TarihFormatlayici extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
-    if (newValue.text.length < oldValue.text.length) return newValue;
-    var text = newValue.text;
-    if (newValue.selection.baseOffset == 0) return newValue;
-    var buffer = StringBuffer();
-    for (int i = 0; i < text.length; i++) {
-      buffer.write(text[i]);
-      var nonZeroIndex = i + 1;
-      if (nonZeroIndex % 2 == 0 && nonZeroIndex != text.length) buffer.write('/');
-    }
-    var string = buffer.toString();
-    return newValue.copyWith(text: string, selection: TextSelection.collapsed(offset: string.length));
   }
 }

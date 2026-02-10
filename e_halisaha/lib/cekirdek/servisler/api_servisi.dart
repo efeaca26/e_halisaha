@@ -1,15 +1,12 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'kimlik_servisi.dart'; // Kimlik servisi importu şart
+import 'kimlik_servisi.dart';
 
 class ApiServisi {
-  // Emülatör için 10.0.2.2, Port: 5216 (Senin verdiğin)
-  // static const String _baseUrl = "http://10.0.2.2:5216/api";
+  // Emülatör için 10.0.2.2, Port: 5216
+  static const String _baseUrl = "http://10.0.2.2:5216/api";
   //gerçek IP adresini yazıyoruz:
   // static const String _baseUrl = "http://10.250.98.178:5216/api";
-  
-  // ŞU AN GEÇERLİ OLAN ADRES (Senin IP):
-  static const String _baseUrl = "http://10.250.98.178:5216/api";
   // e
   // static const String _baseUrl = "http://192.168.1.12:5216/api";
 
@@ -42,21 +39,22 @@ class ApiServisi {
   // }
 
   // --- GİRİŞ YAP (DEBUG MODLU ve DÜZELTİLMİŞ) ---
-  Future<bool> girisYap(String email, String password) async {
+  // Değişiklik: Artık 'email' yerine 'girisBilgisi' alıyoruz (Tel veya Email olabilir)
+  Future<bool> girisYap(String girisBilgisi, String password) async {
     try {
       // ESKİ HATALI SATIR: final url = Uri.parse("http://10.0.2.2:$port/api/Users/Login");
       // YENİ DOĞRU SATIR: Artık yukarıdaki _baseUrl'i (176...) kullanıyor.
       final url = Uri.parse("$_baseUrl/Users/Login");
       
       print("--------------------------------------------------");
-      print("🚀 GİRİŞ DENEMESİ BAŞLIYOR");
-      print("📡 Gidilen Adres: $url"); // Burası artık 176... ile başlamalı
+      print("GİRİŞ DENEMESİ BAŞLIYOR");
+      print("Gidilen Adres: $url"); // Burası artık 176... ile başlamalı
 
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          "email": email,
+          "identifier": girisBilgisi, // Backend artik identifier bekliyor
           "password": password,
         }),
       );
@@ -112,7 +110,8 @@ class ApiServisi {
   // }
 
   // --- KAYIT OL
-  Future<bool> kayitOl(String adSoyad, String telefon, String sifre, bool isletmeMi, {String? sahaAdi, String? konum}) async {
+  // Değişiklik: Opsiyonel 'email' parametresi eklendi
+  Future<bool> kayitOl(String adSoyad, String telefon, String sifre, bool isletmeMi, {String? sahaAdi, String? konum, String? email}) async {
     try {
       final url = Uri.parse('$_baseUrl/Users');
       
@@ -122,6 +121,7 @@ class ApiServisi {
         body: jsonEncode({
           "fullName": adSoyad,
           "phoneNumber": telefon,
+          "email": (email != null && email.isNotEmpty) ? email : null, // E-posta varsa gönder yoksa null
           "password": sifre,
           "role": isletmeMi ? "isletme" : "oyuncu",
           // İşletme ise bu verileri gönder, değilse null gider (sorun olmaz)
@@ -206,11 +206,11 @@ class ApiServisi {
   Future<bool> bilgileriGuncelle(int userId, String ad, String email, String tel, String sifre) async {
     try {
       final response = await http.put(
-        Uri.parse('$_baseUrl/Users/$userId'),
+        Uri.parse('$_baseUrl/Users/AdminUpdate/$userId'), // AdminUpdate endpointini kullanmak daha güvenli
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          "userId": userId, "fullName": ad, "email": email, "phoneNumber": tel, 
-          "passwordHash": sifre, "createdAt": DateTime.now().toIso8601String()
+          "fullName": ad, "email": email, "phoneNumber": tel, 
+          // passwordHash: sifre // Şifre güncelleme ayrı endpointte artık, burayı kapattım hata vermesin
         }),
       );
       return response.statusCode == 204 || response.statusCode == 200;
@@ -230,9 +230,9 @@ class ApiServisi {
       veriler['userId'] = userId;
       veriler['role'] = yeniRol;
       final response = await http.put(
-        Uri.parse('$_baseUrl/Users/$userId'),
+        Uri.parse('$_baseUrl/Users/AdminUpdate/$userId'), // Burayı da AdminUpdate yaptım
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode(veriler),
+        body: jsonEncode({"role": yeniRol}),
       );
       return response.statusCode == 204 || response.statusCode == 200;
     } catch (e) { return false; }
@@ -286,7 +286,7 @@ class ApiServisi {
 
   // Rezervasyon sil
   Future<bool> rezervasyonSil(int id) async {
-     try {
+      try {
       final response = await http.delete(Uri.parse('$_baseUrl/Reservations/$id'));
       return response.statusCode == 204 || response.statusCode == 200;
     } catch (e) {
@@ -300,9 +300,9 @@ class ApiServisi {
   Future<bool> kullaniciRoluGuncelle(int userId, String yeniRol) async {
     try {
       final response = await http.put(
-        Uri.parse('$_baseUrl/Users/ChangeRole/$userId'),
+        Uri.parse('$_baseUrl/Users/AdminUpdate/$userId'), // AdminUpdate kullanıyoruz
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode(yeniRol), // Sadece string olarak gönderiyoruz
+        body: jsonEncode({"role": yeniRol}), 
       );
       return response.statusCode == 200;
     } catch (e) {
@@ -355,13 +355,7 @@ class ApiServisi {
       return false;
     }
   }
-  // Onay Bekleyenleri Getir (isApproved = false olanlar)
-  // Not: Backend'de buna özel endpoint yazmak gerekebilir veya tüm kullanıcıları çekip filter yapabiliriz.
-  // Şimdilik tüm kullanıcıları çekip Flutter'da filtreleyeceğiz.
-  
-  // Kullanıcıyı Onayla
   Future<bool> kullaniciyiOnayla(int userId) async {
-    // Backend'deki AdminUpdate metodunu kullanarak IsApproved = true yapacağız
     return await kullaniciBilgileriniGuncelle(userId, {"isApproved": true});
   }
 }
