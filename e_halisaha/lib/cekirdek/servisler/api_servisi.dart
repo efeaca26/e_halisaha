@@ -4,7 +4,13 @@ import 'kimlik_servisi.dart'; // Kimlik servisi importu şart
 
 class ApiServisi {
   // Emülatör için 10.0.2.2, Port: 5216 (Senin verdiğin)
-  static const String _baseUrl = "http://10.0.2.2:5216/api";
+  // static const String _baseUrl = "http://10.0.2.2:5216/api";
+  //gerçek IP adresini yazıyoruz:
+  // static const String _baseUrl = "http://10.250.98.178:5216/api";
+  
+  // ŞU AN GEÇERLİ OLAN ADRES (Senin IP):
+  static const String _baseUrl = "http://10.250.98.178:5216/api";
+  
 
   // // --- GİRİŞ YAP ---
   // Future<bool> girisYap(String email, String password) async {
@@ -33,14 +39,16 @@ class ApiServisi {
   //   }
   // }
 
-  // --- GİRİŞ YAP (DEBUG MODLU) ---
+  // --- GİRİŞ YAP (DEBUG MODLU ve DÜZELTİLMİŞ) ---
   Future<bool> girisYap(String email, String password) async {
     try {
-      const String port = "5216"; 
-      final url = Uri.parse("http://10.0.2.2:$port/api/Users/Login");
+      // ESKİ HATALI SATIR: final url = Uri.parse("http://10.0.2.2:$port/api/Users/Login");
+      // YENİ DOĞRU SATIR: Artık yukarıdaki _baseUrl'i (176...) kullanıyor.
+      final url = Uri.parse("$_baseUrl/Users/Login");
       
-      print("---- GİRİŞ DENEMESİ BAŞLIYOR ----");
-      print("URL: $url");
+      print("--------------------------------------------------");
+      print("🚀 GİRİŞ DENEMESİ BAŞLIYOR");
+      print("📡 Gidilen Adres: $url"); // Burası artık 176... ile başlamalı
 
       final response = await http.post(
         url,
@@ -304,7 +312,10 @@ class ApiServisi {
   // 2. Tüm Sahaları Getir
   Future<List<dynamic>> tumSahalariGetir() async {
     try {
-      final response = await http.get(Uri.parse('$_baseUrl/Fields')); // Controller adın 'Fields' ise
+      // Backend controller adına göre burası 'Pitches' olmalı.
+      // Eğer backendde Fields ise Fields kalsın ama genelde Pitches kullanıyoruz.
+      // Güvenli olsun diye 'Pitches' yapıyorum, hata verirse değiştiririz.
+      final response = await http.get(Uri.parse('$_baseUrl/Pitches')); 
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       }
