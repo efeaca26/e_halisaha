@@ -10,7 +10,9 @@ class ApiServisi {
   
   // ŞU AN GEÇERLİ OLAN ADRES (Senin IP):
   static const String _baseUrl = "http://10.250.98.178:5216/api";
-  
+  // e
+  // static const String _baseUrl = "http://192.168.1.12:5216/api";
+
 
   // // --- GİRİŞ YAP ---
   // Future<bool> girisYap(String email, String password) async {
