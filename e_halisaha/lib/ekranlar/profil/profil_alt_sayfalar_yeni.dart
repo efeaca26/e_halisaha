@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../main.dart'; 
 import '../../cekirdek/servisler/api_servisi.dart';
 import '../../cekirdek/servisler/kimlik_servisi.dart';
+import '../../bilesenler/gizli_musti.dart';
 
 // ---------------------------------------------------------------------------
 // 1. HESAP BİLGİLERİ EKRANI (Düzeltildi: Artık çalışıyor ve SQL güncelliyor)
@@ -260,14 +261,29 @@ class _GecmisRezervasyonlarEkraniState extends State<GecmisRezervasyonlarEkrani>
 // ---------------------------------------------------------------------------
 class AyarlarEkrani extends StatelessWidget {
   const AyarlarEkrani({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Ayarlar")),
       body: ListView(
         children: [
-          SwitchListTile(title: const Text("Karanlık Mod"), value: temaYoneticisi.value == ThemeMode.dark, onChanged: (v) => temaYoneticisi.value = v ? ThemeMode.dark : ThemeMode.light),
-          const ListTile(leading: Icon(Icons.info), title: Text("v1.0.0"))
+          SwitchListTile(
+            title: const Text("Karanlık Mod"),
+            // temaYoneticisi değişkeni main.dart veya global bir yerden geliyor olmalı
+            value: temaYoneticisi.value == ThemeMode.dark, 
+            onChanged: (v) => temaYoneticisi.value = v ? ThemeMode.dark : ThemeMode.light,
+          ),
+          
+          // --- 👇 GİZLİ ÖZELLİK BURAYA EKLENDİ 👇 ---
+          ListTile(
+            leading: const Icon(Icons.info),
+            title: GizliVideoTetikleyici(
+              videoYolu: 'assets/video.mp4', // Videonun assets içindeki tam yolu
+              child: const Text("v1.0.0"),   // 5.2 sn basılı tutulacak yazı
+            ),
+          )
+          // ------------------------------------------
         ],
       ),
     );

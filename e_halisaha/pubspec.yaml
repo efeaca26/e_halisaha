@@ -35,6 +35,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/resimler/
+    - assets/video.mp4
 
 # İkon Oluşturma Ayarları (En sola dayalı olmalı)
 flutter_launcher_icons:
