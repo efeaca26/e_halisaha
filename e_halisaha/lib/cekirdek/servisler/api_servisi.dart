@@ -5,10 +5,7 @@ import 'kimlik_servisi.dart';
 class ApiServisi {
   // Emülatör için 10.0.2.2, Port: 5216
   // static const String _baseUrl = "http://10.0.2.2:5216/api";
-  //gerçek IP adresini yazıyoruz:
-  static const String _baseUrl = "http://10.123.103.178:5216/api";
-  // 
-  // static const String _baseUrl = "http://192.168.1.12:5216/api";
+  static const String _baseUrl = "https://api.ehalisaha.com.tr/api";
 
 
   // // --- GİRİŞ YAP ---
