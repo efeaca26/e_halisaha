@@ -15,6 +15,7 @@ class IsletmeAnaSayfa extends StatefulWidget {
 class _IsletmeAnaSayfaState extends State<IsletmeAnaSayfa> {
   final ApiServisi _apiServisi = ApiServisi();
   Map<String, dynamic>? _benimSaham;
+  List<dynamic> _randevular = [];
   bool _yukleniyor = true;
 
   @override
@@ -23,25 +24,33 @@ class _IsletmeAnaSayfaState extends State<IsletmeAnaSayfa> {
     _sahaBilgileriniGetir();
   }
 
-  // İşletmeye ait sahayı bulur
+  // İşletmeye ait sahayı ve randevuları bulur
   void _sahaBilgileriniGetir() async {
-    // Tüm sahaları çekip, userId'si benimkiyle eşleşeni bulacağız
-    // (İleride backend'e "GetMyPitch" fonksiyonu ekleyerek bunu iyileştirebiliriz)
     var tumSahalar = await _apiServisi.tumSahalariGetir();
     
     try {
+      // Benim userId'me sahip sahayı bul
       var saham = tumSahalar.firstWhere(
         (saha) => saha['userId'] == widget.kullanici['userId'] || saha['userId'] == widget.kullanici['id'],
-        orElse: () => null
+        orElse: () => null,
       );
-      
-      if (mounted) {
-        setState(() {
-          _benimSaham = saham;
-          _yukleniyor = false;
-        });
+
+      if (saham != null) {
+        // Saha bulundu, şimdi bu sahanın randevularını çek
+        var randevular = await _apiServisi.sahaRandevulariniGetir(saham['pitchId'].toString());
+        
+        if (mounted) {
+          setState(() {
+            _benimSaham = saham;
+            _randevular = List.from(randevular.reversed); // En yeni en üstte
+            _yukleniyor = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _yukleniyor = false);
       }
     } catch (e) {
+      print("Saha Getirme Hatası: $e");
       if (mounted) setState(() => _yukleniyor = false);
     }
   }
@@ -50,18 +59,15 @@ class _IsletmeAnaSayfaState extends State<IsletmeAnaSayfa> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.kullanici['fullName'] ?? "İşletme Paneli"),
-        backgroundColor: Colors.orange[800],
+        title: const Text("İşletme Paneli"),
+        backgroundColor: Colors.orange,
+        foregroundColor: Colors.white,
         actions: [
           IconButton(
             icon: const Icon(Icons.exit_to_app),
             onPressed: () {
               KimlikServisi.cikisYap();
-              Navigator.pushAndRemoveUntil(
-                context, 
-                MaterialPageRoute(builder: (_) => const GirisEkrani()), 
-                (route) => false
-              );
+              Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const GirisEkrani()));
             },
           )
         ],
@@ -69,41 +75,85 @@ class _IsletmeAnaSayfaState extends State<IsletmeAnaSayfa> {
       body: _yukleniyor 
           ? const Center(child: CircularProgressIndicator())
           : _benimSaham == null 
-              ? const Center(child: Text("Saha bilgisi bulunamadı!"))
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: const [
+                      Icon(Icons.error_outline, size: 60, color: Colors.orange),
+                      SizedBox(height: 10),
+                      Text("Size tanımlı bir saha bulunamadı.", style: TextStyle(fontSize: 18)),
+                      Text("Lütfen yönetici ile iletişime geçin.", style: TextStyle(color: Colors.grey)),
+                    ],
+                  ),
+                )
               : Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Column(
                     children: [
-                      // SAHA KARTI
+                      // Saha Bilgi Kartı
                       Card(
                         elevation: 4,
-                        color: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
                         child: Padding(
                           padding: const EdgeInsets.all(16.0),
-                          child: Column(
+                          child: Row(
                             children: [
-                              const Icon(Icons.stadium, size: 50, color: Colors.orange),
-                              const SizedBox(height: 10),
-                              Text(_benimSaham!['name'], style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                              Text(_benimSaham!['location'], style: const TextStyle(color: Colors.grey)),
-                              const SizedBox(height: 10),
-                              Text("Saatlik Ücret: ${_benimSaham!['pricePerHour']} TL", 
-                                  style: const TextStyle(fontSize: 18, color: Colors.green, fontWeight: FontWeight.bold)),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), shape: BoxShape.circle),
+                                child: const Icon(Icons.stadium, size: 40, color: Colors.orange),
+                              ),
+                              const SizedBox(width: 15),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(_benimSaham!['name'] ?? "Saha Adı", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                                  Text(_benimSaham!['location'] ?? "Konum", style: const TextStyle(color: Colors.grey)),
+                                  const SizedBox(height: 5),
+                                  Text("${_benimSaham!['pricePerHour']}₺ / Saat", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                                ],
+                              ),
                             ],
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20),
+                      
+                      const SizedBox(height: 25),
                       const Align(
                         alignment: Alignment.centerLeft, 
-                        child: Text("📅 Randevular (Yakında)", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))
+                        child: Text("📅 Gelen Randevular", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))
                       ),
-                      // Buraya ileride rezervasyon listesi gelecek
+                      const SizedBox(height: 10),
+
+                      // Randevu Listesi
                       Expanded(
-                        child: Center(
-                          child: Text("Henüz randevu sistemini panele bağlamadık.", style: TextStyle(color: Colors.grey[400])),
-                        ),
+                        child: _randevular.isEmpty
+                          ? Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.calendar_today, size: 50, color: Colors.grey[300]),
+                                  const SizedBox(height: 10),
+                                  Text("Henüz randevu yok.", style: TextStyle(color: Colors.grey[500])),
+                                ],
+                              ),
+                            )
+                          : ListView.builder(
+                              itemCount: _randevular.length,
+                              itemBuilder: (context, index) {
+                                var randevu = _randevular[index];
+                                String tarih = randevu['rezDate'].toString().split('T')[0];
+                                return Card(
+                                  margin: const EdgeInsets.only(bottom: 10),
+                                  child: ListTile(
+                                    leading: const CircleAvatar(backgroundColor: Colors.green, child: Icon(Icons.check, color: Colors.white)),
+                                    title: Text("Saat: ${randevu['rezHour']}:00"),
+                                    subtitle: Text("Tarih: $tarih\nNot: ${randevu['note'] ?? 'Not yok'}"),
+                                    trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                                  ),
+                                );
+                              },
+                            ),
                       )
                     ],
                   ),

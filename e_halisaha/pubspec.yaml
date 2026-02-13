@@ -21,6 +21,7 @@ dependencies:
   flutter_secure_storage: ^10.0.0
   mask_text_input_formatter: ^2.9.0
   video_player: ^2.10.1
+  shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:
@@ -34,7 +35,11 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/
     - assets/resimler/
+    - assets/icon.png
+    - assets/icon_beyaz.png
+    - assets/icon_siyah.png
     - assets/video.mp4
 
 # İkon Oluşturma Ayarları (En sola dayalı olmalı)

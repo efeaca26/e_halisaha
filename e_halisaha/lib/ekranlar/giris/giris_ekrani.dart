@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // Beni hatırla için
 import '../../cekirdek/servisler/api_servisi.dart';
 import '../../cekirdek/servisler/kimlik_servisi.dart';
 import '../anasayfa/anasayfa_ekrani.dart';
-import '../admin/admin_ana_sayfa.dart'; 
-import '../isletme/isletme_ana_sayfa.dart';
 
 class GirisEkrani extends StatefulWidget {
   const GirisEkrani({super.key});
@@ -16,234 +15,296 @@ class GirisEkrani extends StatefulWidget {
 class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin {
   final ApiServisi _apiServisi = ApiServisi();
   
-  // --- TELEFON FORMATLAYICI (YENİ) ---
-  // Format: 0555 111 22 33
+  // Formatlayıcılar
   var telefonMaskesi = MaskTextInputFormatter(
-    mask: '### ### ## ##', 
+    mask: '0### ### ## ##', 
     filter: { "#": RegExp(r'[0-9]') },
     type: MaskAutoCompletionType.lazy
   );
 
   // Controllerlar
-  final _sahaAdiController = TextEditingController();
-  final _konumController = TextEditingController();
-  final _girisController = TextEditingController(); 
-  final _sifreController = TextEditingController();
+  final _girisEmailController = TextEditingController(); 
+  final _girisSifreController = TextEditingController();
   
   final _kayitIsimController = TextEditingController();
   final _kayitEmailController = TextEditingController();
-  final _kayitTelefonController = TextEditingController();
+  final _kayitTelefonController = TextEditingController(); // Artık opsiyonel
   final _kayitSifreController = TextEditingController();
-
-  // Animasyonlar
-  late AnimationController _topKontrolcusu;
-  late AnimationController _icerikKontrolcusu;
-  late Animation<double> _topDusmeAnimasyonu;
-  late Animation<double> _icerikOpaklik;
-  late Animation<Offset> _icerikKayma;
+  final _kayitSahaAdiController = TextEditingController();
+  final _kayitKonumController = TextEditingController();
 
   late TabController _tabController;
-  bool isletmeModu = false;
-  bool _yukleniyor = false; 
-  
-  bool _girisSifreGizli = true; 
-  bool _kayitSifreGizli = true; 
+  bool _isletmeModu = false;
+  bool _yukleniyor = false;
+  bool _sifreGizli = true;
+  bool _beniHatirla = false; // Beni Hatırla Checkbox Durumu
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-
-    _topKontrolcusu = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000));
-    _topDusmeAnimasyonu = Tween<double>(begin: -350, end: 0).animate(CurvedAnimation(parent: _topKontrolcusu, curve: Curves.bounceOut));
-
-    _icerikKontrolcusu = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
-    _icerikOpaklik = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _icerikKontrolcusu, curve: Curves.easeIn));
-    _icerikKayma = Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(CurvedAnimation(parent: _icerikKontrolcusu, curve: Curves.easeOutCubic));
-
-    _baslat();
+    _beniHatirlaBilgileriniYukle();
   }
 
-  void _baslat() async {
-    await Future.delayed(const Duration(milliseconds: 100));
-    _topKontrolcusu.forward(); 
-    await Future.delayed(const Duration(milliseconds: 800));
-    _icerikKontrolcusu.forward(); 
+  // Kayıtlı e-posta varsa getir
+  void _beniHatirlaBilgileriniYukle() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? kayitliEmail = prefs.getString('saved_email');
+    if (kayitliEmail != null) {
+      setState(() {
+        _girisEmailController.text = kayitliEmail;
+        _beniHatirla = true;
+      });
+    }
   }
 
   // --- GİRİŞ YAP ---
-  void _girisYap() async {
-    if (_girisController.text.isEmpty || _sifreController.text.isEmpty) {
-      _mesajGoster("Lütfen alanları doldurun", kirmizi: true);
+  Future<void> _girisYap() async {
+    if (_girisEmailController.text.isEmpty || _girisSifreController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Lütfen tüm alanları doldurun.")));
       return;
     }
 
     setState(() => _yukleniyor = true);
+    bool basarili = await _apiServisi.girisYap(_girisEmailController.text.trim(), _girisSifreController.text);
+    setState(() => _yukleniyor = false);
 
-    // Giriş yaparken kullanıcı boşluklu yazmış olabilir, onları temizleyelim
-    // Ama E-Posta yazdıysa boşluk olmaz zaten. 
-    // Telefon yazdıysa "0555 111 22 33" -> "05551112233" olur.
-    String temizIdentifier = _girisController.text.trim();
-    if (!temizIdentifier.contains('@')) {
-      temizIdentifier = temizIdentifier.replaceAll(' ', '');
-    }
-
-    print("--------------------------------------------------");
-    print("🚀 GİRİŞ İŞLEMİ BAŞLATILIYOR...");
-    print("📧 Giriş Bilgisi: $temizIdentifier");
-    
-    try {
-      // 1. API İsteği
-      bool basarili = await _apiServisi.girisYap(
-        temizIdentifier,
-        _sifreController.text.trim()
-      );
-
-      setState(() => _yukleniyor = false);
-
-      if (basarili) {
-        print("✅ API 'Başarılı' döndü.");
-        
-        var aktifKullanici = await KimlikServisi.kullaniciGetir();
-
-        if (aktifKullanici != null) {
-          String rol = aktifKullanici['role'] ?? 'oyuncu';
-          
-          if (mounted) {
-            if (rol == 'admin') {
-              Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AdminAnaSayfa()));
-            } 
-            else if (rol == 'isletme' || rol == 'sahasahibi') {
-              Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => IsletmeAnaSayfa(kullanici: aktifKullanici)));
-            } 
-            else {
-              Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AnasayfaEkrani()));
-            }
-          }
-        } else {
-          _mesajGoster("Kullanıcı verisi okunamadı.", kirmizi: true);
-        }
-
+    if (basarili) {
+      // Beni Hatırla Kaydı
+      final prefs = await SharedPreferences.getInstance();
+      if (_beniHatirla) {
+        await prefs.setString('saved_email', _girisEmailController.text.trim());
       } else {
-        _mesajGoster("Giriş Başarısız! Bilgilerinizi kontrol edin.", kirmizi: true);
+        await prefs.remove('saved_email');
       }
-    } catch (e) {
-       setState(() => _yukleniyor = false);
-       _mesajGoster("Bir hata oluştu: $e", kirmizi: true);
+
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AnasayfaEkrani()));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Giriş başarısız! Bilgileri kontrol edin."), backgroundColor: Colors.red));
     }
   }
 
-  // --- KAYIT OL ---
-  // --- KAYIT OL (GÜNCELLENDİ: Otomatik '0' Ekleme) ---
-  void _kayitOl() async {
-    // Validasyonlar
-    if (_kayitIsimController.text.isEmpty || _kayitTelefonController.text.isEmpty || _kayitSifreController.text.isEmpty) {
-      _mesajGoster("Lütfen zorunlu alanları (Ad, Telefon, Şifre) doldurun", kirmizi: true);
+  // --- KAYIT OL (Validasyonlu) ---
+  Future<void> _kayitOl() async {
+    // 1. İsim Kontrolü
+    if (_kayitIsimController.text.length < 3) {
+      _hataGoster("İsim en az 3 karakter olmalı.");
       return;
     }
-
-    // İşletme ise ek kontroller
-    if (isletmeModu) {
-      if (_sahaAdiController.text.isEmpty || _konumController.text.isEmpty) {
-        _mesajGoster("Lütfen Saha Adı ve Konum giriniz", kirmizi: true);
-        return;
-      }
+    // 2. Email Kontrolü (@ içermeli)
+    if (!_kayitEmailController.text.contains('@') || _kayitEmailController.text.length < 5) {
+      _hataGoster("Geçerli bir E-posta adresi giriniz.");
+      return;
+    }
+    // 3. Şifre Kontrolü (Min 6 hane)
+    if (_kayitSifreController.text.length < 6) {
+      _hataGoster("Şifre en az 6 karakter olmalıdır.");
+      return;
+    }
+    // 4. İşletme Kontrolü
+    if (_isletmeModu && (_kayitSahaAdiController.text.isEmpty || _kayitKonumController.text.isEmpty)) {
+      _hataGoster("İşletme bilgilerini eksiksiz doldurun.");
+      return;
     }
 
     setState(() => _yukleniyor = true);
     
-    String hamTelefon = _kayitTelefonController.text.replaceAll(' ', '');
-    String temizTelefon = "0$hamTelefon"; 
-
+    // API Çağrısı (Yeni Parametre Sırası: İsim, Email, Şifre, Rol...)
     bool basarili = await _apiServisi.kayitOl(
       _kayitIsimController.text.trim(),
-      temizTelefon, // Düzenlenmiş numara servise gidiyor
-      _kayitSifreController.text.trim(),
-      isletmeModu,
-      sahaAdi: isletmeModu ? _sahaAdiController.text.trim() : null,
-      konum: isletmeModu ? _konumController.text.trim() : null,
-      email: _kayitEmailController.text.trim(), 
+      _kayitEmailController.text.trim(), // Email artık 2. sırada ve zorunlu
+      _kayitSifreController.text,
+      _isletmeModu,
+      phoneNumber: _kayitTelefonController.text.isNotEmpty ? _kayitTelefonController.text : null, // Opsiyonel
+      pitchName: _isletmeModu ? _kayitSahaAdiController.text : null,
+      location: _isletmeModu ? _kayitKonumController.text : null,
     );
 
     setState(() => _yukleniyor = false);
 
     if (basarili) {
-      if (isletmeModu) {
-        _mesajGoster("Kayıt alındı! Admin onayından sonra giriş yapabileceksiniz.");
-      } else {
-        _mesajGoster("Kayıt Başarılı! Giriş yapabilirsiniz.");
-      }
-      _tabController.animateTo(0); // Giriş sekmesine kaydır
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Kayıt Başarılı! Giriş yapabilirsiniz."), backgroundColor: Colors.green));
+      _tabController.animateTo(0); // Giriş sekmesine geç
     } else {
-      _mesajGoster("Kayıt olunamadı.", kirmizi: true);
+      _hataGoster("Kayıt başarısız. Bu e-posta kullanılıyor olabilir.");
     }
   }
 
-  void _mesajGoster(String mesaj, {bool kirmizi = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mesaj), backgroundColor: kirmizi ? Colors.red : Colors.green));
+  void _hataGoster(String mesaj) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mesaj), backgroundColor: Colors.red));
   }
 
   @override
   Widget build(BuildContext context) {
+    final bool koyuMod = Theme.of(context).brightness == Brightness.dark;
+    
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFFF0FDF4), Color(0xFFEFF6FF)]),
-        ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 60),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: SingleChildScrollView(
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height,
           child: Column(
             children: [
-              const SizedBox(height: 50),
-              
-              AnimatedBuilder(
-                animation: _topDusmeAnimasyonu,
-                builder: (context, child) => Transform.translate(offset: Offset(0, _topDusmeAnimasyonu.value), child: const Icon(Icons.sports_soccer, size: 80, color: Color(0xFF22C55E))),
+              const SizedBox(height: 60),
+              // Logo
+              Image.asset(
+                koyuMod ? 'assets/icon.png' : 'assets/icon.png',
+                height: 100
               ),
-              
               const SizedBox(height: 20),
-
-              const Text(
-                "e-Halisaha",
-                style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32), letterSpacing: 1.5),
-              ),
-              const SizedBox(height: 5),
-              const Text(
-                "Maçın Adresi",
-                style: TextStyle(fontSize: 16, color: Colors.grey, fontStyle: FontStyle.italic),
-              ),
-
-              const SizedBox(height: 30),
-              
-              FadeTransition(
-                opacity: _icerikOpaklik,
-                child: SlideTransition(
-                  position: _icerikKayma,
-                  child: Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20)]),
-                    child: Column(
-                      children: [
-                        Row(children: [_rolButonu("Oyuncu", !isletmeModu), _rolButonu("İşletme", isletmeModu)]),
-                        const SizedBox(height: 20),
-                        TabBar(
-                          controller: _tabController,
-                          labelColor: Colors.green,
-                          unselectedLabelColor: Colors.grey,
-                          indicatorColor: Colors.green,
-                          tabs: const [Tab(text: "Giriş Yap"), Tab(text: "Kayıt Ol")],
-                        ),
-                        const SizedBox(height: 20),
-                        SizedBox(
-                          height: 480, 
-                          child: TabBarView(
-                            controller: _tabController,
-                            children: [_girisFormu(), _kayitFormu()],
-                          ),
-                        ),
-                      ],
-                    ),
+              // Tab Bar
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 40),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(25),
                   ),
+                  child: TabBar(
+                    controller: _tabController,
+                    indicator: BoxDecoration(
+                      color: const Color(0xFF22C55E),
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                    labelColor: Colors.white,
+                    unselectedLabelColor: Colors.grey,
+                    tabs: const [Tab(text: "Giriş Yap"), Tab(text: "Kayıt Ol")],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              
+              // Formlar
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    // --- GİRİŞ TAB ---
+                    Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          TextField(
+                            controller: _girisEmailController,
+                            decoration: const InputDecoration(labelText: "E-posta", prefixIcon: Icon(Icons.email)),
+                            keyboardType: TextInputType.emailAddress,
+                          ),
+                          const SizedBox(height: 15),
+                          TextField(
+                            controller: _girisSifreController,
+                            obscureText: _sifreGizli,
+                            decoration: InputDecoration(
+                              labelText: "Şifre", 
+                              prefixIcon: const Icon(Icons.lock),
+                              suffixIcon: IconButton(icon: Icon(_sifreGizli ? Icons.visibility : Icons.visibility_off), onPressed: () => setState(() => _sifreGizli = !_sifreGizli))
+                            ),
+                          ),
+                          
+                          // Beni Hatırla & Şifremi Unuttum
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Checkbox(
+                                    activeColor: const Color(0xFF22C55E),
+                                    value: _beniHatirla, 
+                                    onChanged: (val) => setState(() => _beniHatirla = val!)
+                                  ),
+                                  const Text("Beni Hatırla")
+                                ],
+                              ),
+                              TextButton(
+                                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Şifre sıfırlama bağlantısı e-postanıza gönderildi. (Demo)"))),
+                                child: const Text("Şifremi Unuttum?", style: TextStyle(color: Colors.grey)),
+                              )
+                            ],
+                          ),
+                          
+                          const SizedBox(height: 20),
+                          _yukleniyor 
+                            ? const CircularProgressIndicator()
+                            : ElevatedButton(
+                                onPressed: _girisYap,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF22C55E),
+                                  minimumSize: const Size(double.infinity, 50),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+                                ),
+                                child: const Text("GİRİŞ YAP", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                              ),
+                        ],
+                      ),
+                    ),
+
+                    // --- KAYIT TAB ---
+                    SingleChildScrollView(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        children: [
+                          TextField(controller: _kayitIsimController, decoration: const InputDecoration(labelText: "Ad Soyad", prefixIcon: Icon(Icons.person))),
+                          const SizedBox(height: 15),
+                          TextField(controller: _kayitEmailController, decoration: const InputDecoration(labelText: "E-posta (Zorunlu)", prefixIcon: Icon(Icons.email)), keyboardType: TextInputType.emailAddress),
+                          const SizedBox(height: 15),
+                          TextField(
+                            controller: _kayitTelefonController, // Opsiyonel
+                            inputFormatters: [telefonMaskesi],
+                            decoration: const InputDecoration(labelText: "Telefon (İsteğe Bağlı)", prefixIcon: Icon(Icons.phone)),
+                            keyboardType: TextInputType.phone
+                          ),
+                          const SizedBox(height: 15),
+                          TextField(
+                            controller: _kayitSifreController, 
+                            obscureText: true,
+                            decoration: const InputDecoration(labelText: "Şifre (Min 6 Karakter)", prefixIcon: Icon(Icons.lock))
+                          ),
+                          const SizedBox(height: 20),
+                          
+                          // İşletme Switch
+                          Row(
+                            children: [
+                              Switch(
+                                value: _isletmeModu,
+                                activeColor: const Color(0xFF22C55E),
+                                onChanged: (val) => setState(() => _isletmeModu = val),
+                              ),
+                              const Text("Halı Saha İşletmecisiyim", style: TextStyle(fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                          
+                          if (_isletmeModu) ...[
+                            const SizedBox(height: 15),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.green)),
+                              child: Column(
+                                children: [
+                                  TextField(controller: _kayitSahaAdiController, decoration: const InputDecoration(labelText: "Saha Adı", prefixIcon: Icon(Icons.stadium))),
+                                  const SizedBox(height: 10),
+                                  TextField(controller: _kayitKonumController, decoration: const InputDecoration(labelText: "İlçe / Konum", prefixIcon: Icon(Icons.map))),
+                                ],
+                              ),
+                            ),
+                          ],
+                          
+                          const SizedBox(height: 25),
+                          _yukleniyor 
+                            ? const CircularProgressIndicator()
+                            : ElevatedButton(
+                                onPressed: _kayitOl,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF22C55E),
+                                  minimumSize: const Size(double.infinity, 50),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+                                ),
+                                child: const Text("HESAP OLUŞTUR", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                              ),
+                          const SizedBox(height: 30), // Klavye payı
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -252,575 +313,4 @@ class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin
       ),
     );
   }
-
-  Widget _rolButonu(String text, bool active) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => isletmeModu = text == "İşletme"),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(color: active ? Colors.green[50] : Colors.transparent, borderRadius: BorderRadius.circular(8)),
-          child: Text(text, textAlign: TextAlign.center, style: TextStyle(color: active ? Colors.green : Colors.grey, fontWeight: FontWeight.bold)),
-        ),
-      ),
-    );
-  }
-
-  // --- GİRİŞ FORMU ---
-  Widget _girisFormu() {
-    return Column(
-      children: [
-        TextField(
-          controller: _girisController, 
-          // Not: Giriş ekranında maske KULLANMIYORUZ, çünkü E-posta da girilebilir.
-          keyboardType: TextInputType.emailAddress, 
-          decoration: const InputDecoration(
-            labelText: "E-Posta / Telefon No", 
-            prefixIcon: Icon(Icons.person_outline), 
-            border: OutlineInputBorder(), 
-            hintText: "0555... veya ornek@gmail.com"
-          )
-        ),
-        const SizedBox(height: 15),
-        TextField(
-          controller: _sifreController, 
-          obscureText: _girisSifreGizli, 
-          decoration: InputDecoration(
-            labelText: "Şifre", 
-            prefixIcon: const Icon(Icons.lock_outline), 
-            border: const OutlineInputBorder(),
-            suffixIcon: IconButton(
-              icon: Icon(_girisSifreGizli ? Icons.visibility_off : Icons.visibility), 
-              onPressed: () => setState(() => _girisSifreGizli = !_girisSifreGizli)
-            )
-          )
-        ),
-        const Spacer(),
-        _yukleniyor 
-          ? const CircularProgressIndicator() 
-          : ElevatedButton(
-              onPressed: _girisYap, 
-              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF22C55E), minimumSize: const Size(double.infinity, 50)), 
-              child: const Text("GİRİŞ YAP", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
-            ),
-      ],
-    );
-  }
-
-  // --- KAYIT FORMU ---
-  Widget _kayitFormu() {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          TextField(controller: _kayitIsimController, decoration: const InputDecoration(labelText: "Ad Soyad", prefixIcon: Icon(Icons.person), border: OutlineInputBorder())),
-          const SizedBox(height: 10),
-          
-          // TELEFON (FORMATLI)
-          TextField(
-            controller: _kayitTelefonController, 
-            keyboardType: TextInputType.phone, 
-            inputFormatters: [telefonMaskesi], 
-            decoration: const InputDecoration(
-              labelText: "Telefon (Zorunlu)", 
-              prefixIcon: Icon(Icons.phone), 
-              border: OutlineInputBorder(),
-              hintText: "5__ ___ __ __",
-              prefixText: "0 ",
-              prefixStyle: TextStyle(color: Colors.black, fontSize: 16)
-            )
-          ),
-          const SizedBox(height: 10),
-
-          TextField(
-            controller: _kayitEmailController, 
-            keyboardType: TextInputType.emailAddress, 
-            decoration: const InputDecoration(
-              labelText: "E-Posta (İsteğe Bağlı)", 
-              prefixIcon: Icon(Icons.email_outlined), 
-              border: OutlineInputBorder()
-            )
-          ),
-          const SizedBox(height: 10),
-
-          TextField(controller: _kayitSifreController, obscureText: _kayitSifreGizli, decoration: const InputDecoration(labelText: "Şifre", prefixIcon: Icon(Icons.lock), border: OutlineInputBorder())),
-          
-          if (isletmeModu) ...[
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: Colors.green[50], borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.green)),
-              child: Column(
-                children: [
-                  const Text("Saha Bilgileri", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-                  const SizedBox(height: 10),
-                  TextField(controller: _sahaAdiController, decoration: const InputDecoration(labelText: "Saha Adı", prefixIcon: Icon(Icons.stadium), border: OutlineInputBorder())),
-                  const SizedBox(height: 10),
-                  TextField(controller: _konumController, decoration: const InputDecoration(labelText: "Konum (İl/İlçe)", prefixIcon: Icon(Icons.map), border: OutlineInputBorder())),
-                ],
-              ),
-            ),
-          ],
-          
-          const SizedBox(height: 20),
-          _yukleniyor ? const CircularProgressIndicator() : ElevatedButton(onPressed: _kayitOl, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF22C55E), minimumSize: const Size(double.infinity, 50)), child: const Text("KAYIT OL", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-        ],
-      ),
-    );
-  }
 }
-
-
-
-
-// import 'package:flutter/material.dart';
-// // Dosya yollarını kendi projene göre kontrol et
-// import '../../cekirdek/servisler/api_servisi.dart';
-// import '../../cekirdek/servisler/kimlik_servisi.dart';
-// import '../anasayfa/anasayfa_ekrani.dart';
-// import '../admin/admin_ana_sayfa.dart'; 
-// import '../isletme/isletme_ana_sayfa.dart';
-
-// class GirisEkrani extends StatefulWidget {
-//   const GirisEkrani({super.key});
-
-//   @override
-//   State<GirisEkrani> createState() => _GirisEkraniState();
-// }
-
-// class _GirisEkraniState extends State<GirisEkrani> with TickerProviderStateMixin {
-//   final ApiServisi _apiServisi = ApiServisi();
-//   final _sahaAdiController = TextEditingController();
-//   final _konumController = TextEditingController();
-
-//   late AnimationController _topKontrolcusu;
-//   late AnimationController _icerikKontrolcusu;
-//   late Animation<double> _topDusmeAnimasyonu;
-//   late Animation<double> _icerikOpaklik;
-//   late Animation<Offset> _icerikKayma;
-
-//   late TabController _tabController;
-//   bool isletmeModu = false;
-//   bool _yukleniyor = false; 
-  
-//   bool _girisSifreGizli = true; 
-//   bool _kayitSifreGizli = true; 
-
-//   final _girisController = TextEditingController(); 
-//   final _sifreController = TextEditingController();
-  
-//   final _kayitIsimController = TextEditingController();
-//   final _kayitEmailController = TextEditingController();
-//   final _kayitTelefonController = TextEditingController();
-//   final _kayitSifreController = TextEditingController();
-
-//   @override
-//   void initState() {
-//     super.initState();
-//     _tabController = TabController(length: 2, vsync: this);
-
-//     _topKontrolcusu = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000));
-//     _topDusmeAnimasyonu = Tween<double>(begin: -350, end: 0).animate(CurvedAnimation(parent: _topKontrolcusu, curve: Curves.bounceOut));
-
-//     _icerikKontrolcusu = AnimationController(vsync: this, duration: const Duration(milliseconds: 800));
-//     _icerikOpaklik = Tween<double>(begin: 0.0, end: 1.0).animate(CurvedAnimation(parent: _icerikKontrolcusu, curve: Curves.easeIn));
-//     _icerikKayma = Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(CurvedAnimation(parent: _icerikKontrolcusu, curve: Curves.easeOutCubic));
-
-//     _baslat();
-//   }
-
-//   void _baslat() async {
-//     await Future.delayed(const Duration(milliseconds: 100));
-//     _topKontrolcusu.forward(); 
-//     await Future.delayed(const Duration(milliseconds: 800));
-//     _icerikKontrolcusu.forward(); 
-//   }
-
-
-//   // // GİRİŞ
-
-// //   void _girisYap() async {
-
-// //     if (_girisController.text.isEmpty || _sifreController.text.isEmpty) {
-
-// //       _mesajGoster("Lütfen alanları doldurun", kirmizi: true);
-
-// //       return;
-
-// //     }
-
-
-
-// //     setState(() => _yukleniyor = true);
-
-
-
-// //     // 1. API İsteği
-
-// //     print("--- GİRİŞ İSTEĞİ BAŞLIYOR ---");
-
-// //     bool basarili = await _apiServisi.girisYap(
-
-// //       _girisController.text.trim(),
-
-// //       _sifreController.text.trim()
-
-// //     );
-
-
-
-// //     setState(() => _yukleniyor = false);
-
-
-
-// //     if (basarili) {
-
-// //       // 2. Kimlik Servisine Ne Kaydedildi?
-
-// //       var aktifKullanici = KimlikServisi.aktifKullanici;
-
-      
-
-// //       print("--- KİMLİK SERVİSİ RAPORU ---");
-
-// //       print("Kayıtlı İsim: ${aktifKullanici?['isim']}");
-
-// //       print("Kayıtlı Rol (Raw): ${aktifKullanici?['role']}"); // Burası null mı geliyor?
-
-// //       print("Admin mi?: ${KimlikServisi.isAdmin}");
-
-// //       print("------------------------------");
-
-
-
-// //       if (mounted) {
-
-// //         // ROL KONTROLÜ
-
-// //         // Not: Veritabanında 'admin' küçük harf, burada da küçük harf kontrol ediyoruz.
-
-// //         String rol = aktifKullanici?['role']?.toString().toLowerCase() ?? 'oyuncu';
-
-
-
-// //         if (rol == 'admin') {
-
-// //           print(">>> YÖNETİCİ SAYFASINA GİDİLİYOR >>>");
-
-// //           Navigator.pushReplacement(
-
-// //             context, 
-
-// //             MaterialPageRoute(builder: (context) => AdminAnaSayfa())
-
-// //           );
-
-// //         } else {
-
-// //           print(">>> OYUNCU SAYFASINA GİDİLİYOR (Rol: $rol) >>>");
-
-// //           Navigator.pushReplacement(
-
-// //             context, 
-
-// //             MaterialPageRoute(builder: (context) => const AnasayfaEkrani())
-
-// //           );
-
-// //         }
-
-// //       }
-
-// //     } else {
-
-// //       _mesajGoster("Giriş Başarısız!", kirmizi: true);
-
-// //     }
-
-// //   }
-
-//   // --- GİRİŞ YAP (DEBUG VERSİYON) ---
-
-//   void _girisYap() async {
-//     if (_girisController.text.isEmpty || _sifreController.text.isEmpty) {
-//       _mesajGoster("Lütfen alanları doldurun", kirmizi: true);
-//       return;
-//     }
-
-//     setState(() => _yukleniyor = true);
-
-//     print("--------------------------------------------------");
-//     print("🚀 GİRİŞ İŞLEMİ BAŞLATILIYOR...");
-//     print("📧 Email: ${_girisController.text.trim()}");
-    
-//     try {
-//       // 1. API İsteği
-//       bool basarili = await _apiServisi.girisYap(
-//         _girisController.text.trim(),
-//         _sifreController.text.trim()
-//       );
-
-//       setState(() => _yukleniyor = false);
-
-//       if (basarili) {
-//         print("✅ API 'Başarılı' döndü.");
-        
-//         // Verileri tazelemek için KimlikServisinden tekrar okuyalım
-//         var aktifKullanici = await KimlikServisi.kullaniciGetir();
-
-//         // 2. Kimlik Servisine Ne Kaydedildi?
-//         print("🔍 KİMLİK SERVİSİ İNCELENİYOR:");
-        
-//         if (aktifKullanici != null) {
-//           print("👤 İsim: ${aktifKullanici['fullName']}");
-//           print("🆔 ID: ${aktifKullanici['userId'] ?? aktifKullanici['id']}");
-          
-//           // Rol Kontrolü
-//           String rol = aktifKullanici['role'] ?? 'oyuncu';
-//           print("🎭 ROL: '$rol'"); 
-
-//           if (mounted) {
-//             // --- KESİN YÖNLENDİRME (3 YOL) ---
-            
-//             if (rol == 'admin') {
-//               print("🛑 KARAR: SÜPER ADMİN PANELİNE GİDİLİYOR...");
-//               Navigator.pushReplacement(
-//                 context, 
-//                 MaterialPageRoute(builder: (context) => const AdminAnaSayfa())
-//               );
-//             } 
-//             else if (rol == 'isletme' || rol == 'sahasahibi') {
-//               print("🏟️ KARAR: İŞLETME (SAHA) PANELİNE GİDİLİYOR...");
-//               // İşletme sayfasına kullanıcı verisini gönderiyoruz
-//               Navigator.pushReplacement(
-//                 context, 
-//                 MaterialPageRoute(builder: (context) => IsletmeAnaSayfa(kullanici: aktifKullanici))
-//               );
-//             } 
-//             else {
-//               print("🏃 KARAR: OYUNCU SAYFASINA GİDİLİYOR...");
-//               Navigator.pushReplacement(
-//                 context, 
-//                 MaterialPageRoute(builder: (context) => const AnasayfaEkrani())
-//               );
-//             }
-//           }
-//         } else {
-//           print("❌ HATA: Aktif Kullanıcı NULL! Kayıt okunamadı.");
-//           _mesajGoster("Kullanıcı verisi okunamadı.", kirmizi: true);
-//         }
-
-//       } else {
-//         print("❌ API 'Başarısız' döndü.");
-//         _mesajGoster("Giriş Başarısız! E-posta veya şifre hatalı.", kirmizi: true);
-//       }
-//     } catch (e) {
-//        print("❌ BÜYÜK HATA: $e");
-//        setState(() => _yukleniyor = false);
-//        _mesajGoster("Bir hata oluştu: $e", kirmizi: true);
-//     }
-//     print("--------------------------------------------------");
-//   }
-
-//   // --- KAYIT OL ---
-//   void _kayitOl() async {
-//     // Validasyonlar
-//     if (_kayitIsimController.text.isEmpty || _kayitTelefonController.text.isEmpty || _kayitSifreController.text.isEmpty) {
-//       _mesajGoster("Eksik bilgi girdiniz", kirmizi: true);
-//       return;
-//     }
-
-//     // İşletme ise ek kontroller
-//     if (isletmeModu) {
-//       if (_sahaAdiController.text.isEmpty || _konumController.text.isEmpty) {
-//         _mesajGoster("Lütfen Saha Adı ve Konum giriniz", kirmizi: true);
-//         return;
-//       }
-//     }
-
-//     setState(() => _yukleniyor = true);
-
-//     bool basarili = await _apiServisi.kayitOl(
-//       _kayitIsimController.text.trim(),
-//       _kayitTelefonController.text.trim(), 
-//       _kayitSifreController.text.trim(),
-//       isletmeModu,
-//       sahaAdi: isletmeModu ? _sahaAdiController.text.trim() : null,
-//       konum: isletmeModu ? _konumController.text.trim() : null,
-//     );
-
-//     setState(() => _yukleniyor = false);
-
-//     if (basarili) {
-//       if (isletmeModu) {
-//         _mesajGoster("Kayıt alındı! Admin onayından sonra giriş yapabileceksiniz.");
-//       } else {
-//         _mesajGoster("Kayıt Başarılı! Giriş yapabilirsiniz.");
-//       }
-//       _tabController.animateTo(0);
-//     } else {
-//       _mesajGoster("Kayıt olunamadı.", kirmizi: true);
-//     }
-//   }
-
-//   void _mesajGoster(String mesaj, {bool kirmizi = false}) {
-//     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mesaj), backgroundColor: kirmizi ? Colors.red : Colors.green));
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       body: Container(
-//         decoration: const BoxDecoration(
-//           gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFFF0FDF4), Color(0xFFEFF6FF)]),
-//         ),
-//         child: SingleChildScrollView(
-//           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 60),
-//           child: Column(
-//             children: [
-//               const SizedBox(height: 50),
-              
-//               AnimatedBuilder(
-//                 animation: _topDusmeAnimasyonu,
-//                 builder: (context, child) => Transform.translate(offset: Offset(0, _topDusmeAnimasyonu.value), child: const Icon(Icons.sports_soccer, size: 80, color: Color(0xFF22C55E))),
-//               ),
-              
-//               const SizedBox(height: 20),
-
-//               const Text(
-//                 "e-Halisaha",
-//                 style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Color(0xFF2E7D32), letterSpacing: 1.5),
-//               ),
-//               const SizedBox(height: 5),
-//               const Text(
-//                 "Maçın Adresi",
-//                 style: TextStyle(fontSize: 16, color: Colors.grey, fontStyle: FontStyle.italic),
-//               ),
-
-//               const SizedBox(height: 30),
-              
-//               FadeTransition(
-//                 opacity: _icerikOpaklik,
-//                 child: SlideTransition(
-//                   position: _icerikKayma,
-//                   child: Container(
-//                     padding: const EdgeInsets.all(24),
-//                     decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 20)]),
-//                     child: Column(
-//                       children: [
-//                         Row(children: [_rolButonu("Oyuncu", !isletmeModu), _rolButonu("İşletme", isletmeModu)]),
-//                         const SizedBox(height: 20),
-//                         TabBar(
-//                           controller: _tabController,
-//                           labelColor: Colors.green,
-//                           unselectedLabelColor: Colors.grey,
-//                           indicatorColor: Colors.green,
-//                           tabs: const [Tab(text: "Giriş Yap"), Tab(text: "Kayıt Ol")],
-//                         ),
-//                         const SizedBox(height: 20),
-//                         SizedBox(
-//                           height: 400,
-//                           child: TabBarView(
-//                             controller: _tabController,
-//                             children: [_girisFormu(), _kayitFormu()],
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                   ),
-//                 ),
-//               ),
-//             ],
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-
-//   Widget _rolButonu(String text, bool active) {
-//     return Expanded(
-//       child: GestureDetector(
-//         onTap: () => setState(() => isletmeModu = text == "İşletme"),
-//         child: Container(
-//           padding: const EdgeInsets.symmetric(vertical: 12),
-//           decoration: BoxDecoration(color: active ? Colors.green[50] : Colors.transparent, borderRadius: BorderRadius.circular(8)),
-//           child: Text(text, textAlign: TextAlign.center, style: TextStyle(color: active ? Colors.green : Colors.grey, fontWeight: FontWeight.bold)),
-//         ),
-//       ),
-//     );
-//   }
-
-//   // --- GİRİŞ FORMU ---
-//   Widget _girisFormu() {
-//     return Column(
-//       children: [
-//         TextField(
-//           controller: _girisController, 
-//           keyboardType: TextInputType.emailAddress, 
-//           decoration: const InputDecoration(
-//             labelText: "E-Posta", 
-//             prefixIcon: Icon(Icons.email_outlined),
-//             border: OutlineInputBorder(), 
-//           )
-//         ),
-//         const SizedBox(height: 15),
-//         TextField(
-//           controller: _sifreController, 
-//           obscureText: _girisSifreGizli, 
-//           decoration: InputDecoration(
-//             labelText: "Şifre", 
-//             prefixIcon: const Icon(Icons.lock_outline), 
-//             border: const OutlineInputBorder(),
-//             suffixIcon: IconButton(
-//               icon: Icon(_girisSifreGizli ? Icons.visibility_off : Icons.visibility), 
-//               onPressed: () => setState(() => _girisSifreGizli = !_girisSifreGizli)
-//             )
-//           )
-//         ),
-//         const Spacer(),
-//         _yukleniyor 
-//           ? const CircularProgressIndicator() 
-//           : ElevatedButton(
-//               onPressed: _girisYap, 
-//               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF22C55E), minimumSize: const Size(double.infinity, 50)), 
-//               child: const Text("GİRİŞ YAP", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
-//             ),
-//       ],
-//     );
-//   }
-
-//   // --- KAYIT FORMU ---
-//   Widget _kayitFormu() {
-//     return SingleChildScrollView(
-//       child: Column(
-//         children: [
-//           TextField(controller: _kayitIsimController, decoration: const InputDecoration(labelText: "Ad Soyad", prefixIcon: Icon(Icons.person), border: OutlineInputBorder())),
-//           const SizedBox(height: 10),
-//           TextField(controller: _kayitTelefonController, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: "Telefon", prefixIcon: Icon(Icons.phone), border: OutlineInputBorder())),
-//           const SizedBox(height: 10),
-//           TextField(controller: _kayitSifreController, obscureText: _kayitSifreGizli, decoration: const InputDecoration(labelText: "Şifre", prefixIcon: Icon(Icons.lock), border: OutlineInputBorder())),
-          
-//           // --- İŞLETME İSE EKSTRA ALANLAR GÖZÜKSÜN ---
-//           if (isletmeModu) ...[
-//             const SizedBox(height: 20),
-//             Container(
-//               padding: const EdgeInsets.all(10),
-//               decoration: BoxDecoration(color: Colors.green[50], borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.green)),
-//               child: Column(
-//                 children: [
-//                   const Text("Saha Bilgileri", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-//                   const SizedBox(height: 10),
-//                   TextField(controller: _sahaAdiController, decoration: const InputDecoration(labelText: "Saha Adı", prefixIcon: Icon(Icons.stadium), border: OutlineInputBorder())),
-//                   const SizedBox(height: 10),
-//                   TextField(controller: _konumController, decoration: const InputDecoration(labelText: "Konum (İl/İlçe)", prefixIcon: Icon(Icons.map), border: OutlineInputBorder())),
-//                 ],
-//               ),
-//             ),
-//           ],
-          
-//           const SizedBox(height: 20),
-//           _yukleniyor ? const CircularProgressIndicator() : ElevatedButton(onPressed: _kayitOl, style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF22C55E), minimumSize: const Size(double.infinity, 50)), child: const Text("KAYIT OL", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
-//         ],
-//       ),
-//     );
-//   }
-// }

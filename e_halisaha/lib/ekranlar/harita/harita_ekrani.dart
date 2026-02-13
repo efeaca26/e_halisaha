@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:geolocator/geolocator.dart'; // <--- GPS Paketi
+import 'package:geolocator/geolocator.dart';
 import '../../modeller/saha_modeli.dart';
 import '../../cekirdek/servisler/ornek_veri.dart';
 import '../saha_detay/saha_detay_ekrani.dart';
@@ -103,8 +103,13 @@ class _HaritaEkraniState extends State<HaritaEkrani> {
   void _filtrePenceresiniAc() {
     showModalBottomSheet(
       context: context,
+      // BottomSheet arka planı temaya uysun
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (context) {
+        // Tema kontrolü (Karanlık mı?)
+        bool koyuMod = Theme.of(context).brightness == Brightness.dark;
+        
         return StatefulBuilder(
           builder: (context, setModalState) {
             return Padding(
@@ -113,7 +118,9 @@ class _HaritaEkraniState extends State<HaritaEkrani> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("Özelliklere Göre Filtrele", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text("Özelliklere Göre Filtrele", 
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: koyuMod ? Colors.white : Colors.black)
+                  ),
                   const SizedBox(height: 16),
                   Wrap(
                     spacing: 10,
@@ -123,9 +130,19 @@ class _HaritaEkraniState extends State<HaritaEkrani> {
                       return FilterChip(
                         label: Text(ozellik),
                         selected: secili,
-                        selectedColor: const Color(0xFFDCFCE7),
-                        checkmarkColor: const Color(0xFF15803D),
-                        labelStyle: TextStyle(color: secili ? const Color(0xFF15803D) : Colors.black),
+                        // --- DÜZELTME 3: KARANLIK MOD RENK AYARLARI ---
+                        backgroundColor: koyuMod ? Colors.grey[800] : Colors.white,
+                        selectedColor: const Color(0xFF22C55E), // Seçilince Yeşil
+                        checkmarkColor: Colors.white,
+                        labelStyle: TextStyle(
+                          // Seçiliyse beyaz, değilse temaya göre (Karanlıkta beyaz, Aydınlıkta siyah)
+                          color: secili ? Colors.white : (koyuMod ? Colors.white : Colors.black),
+                          fontWeight: secili ? FontWeight.bold : FontWeight.normal
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          side: BorderSide(color: secili ? Colors.transparent : Colors.grey.withOpacity(0.3))
+                        ),
                         onSelected: (bool value) {
                           setModalState(() {
                             if (value) {
@@ -165,15 +182,17 @@ class _HaritaEkraniState extends State<HaritaEkrani> {
 
   @override
   Widget build(BuildContext context) {
+    bool koyuMod = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       resizeToAvoidBottomInset: false,
       
-      // --- YENİ: KONUM BUTONU (SAĞ ALT) ---
+      // --- KONUM BUTONU (SAĞ ALT) ---
       floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 100), // Kartın altında kalmasın diye yukarı ittik
+        padding: const EdgeInsets.only(bottom: 100), 
         child: FloatingActionButton(
           onPressed: _konumaGit,
-          backgroundColor: Colors.white,
+          backgroundColor: koyuMod ? Colors.grey[800] : Colors.white,
           child: const Icon(Icons.my_location, color: Color(0xFF22C55E)),
         ),
       ),
@@ -192,7 +211,9 @@ class _HaritaEkraniState extends State<HaritaEkrani> {
             ),
             children: [
               TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                urlTemplate: koyuMod 
+                    ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' // Karanlık Harita Katmanı (Opsiyonel)
+                    : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                 userAgentPackageName: 'com.example.e_halisaha',
               ),
               MarkerLayer(
@@ -230,10 +251,15 @@ class _HaritaEkraniState extends State<HaritaEkrani> {
             top: 50, left: 20, right: 20,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 15)]),
+              decoration: BoxDecoration(
+                color: koyuMod ? Colors.grey[900] : Colors.white, 
+                borderRadius: BorderRadius.circular(15), 
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 15)]
+              ),
               child: TextField(
                 controller: _aramaController,
                 onChanged: (_) => _filtrele(),
+                style: TextStyle(color: koyuMod ? Colors.white : Colors.black),
                 decoration: InputDecoration(
                   hintText: "Haritada ara...",
                   hintStyle: const TextStyle(color: Colors.grey),
@@ -242,8 +268,14 @@ class _HaritaEkraniState extends State<HaritaEkrani> {
                   suffixIcon: IconButton(
                     icon: Container(
                       padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(color: _aktifFiltreler.isNotEmpty ? const Color(0xFFDCFCE7) : Colors.grey[100], shape: BoxShape.circle),
-                      child: Icon(Icons.filter_list, color: _aktifFiltreler.isNotEmpty ? const Color(0xFF15803D) : Colors.black, size: 20),
+                      decoration: BoxDecoration(
+                        color: _aktifFiltreler.isNotEmpty ? const Color(0xFFDCFCE7) : (koyuMod ? Colors.grey[800] : Colors.grey[100]), 
+                        shape: BoxShape.circle
+                      ),
+                      child: Icon(Icons.filter_list, 
+                        color: _aktifFiltreler.isNotEmpty ? const Color(0xFF15803D) : (koyuMod ? Colors.white : Colors.black), 
+                        size: 20
+                      ),
                     ),
                     onPressed: _filtrePenceresiniAc,
                   ),
@@ -260,7 +292,11 @@ class _HaritaEkraniState extends State<HaritaEkrani> {
                 onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SahaDetayEkrani(saha: _seciliSaha!))),
                 child: Container(
                   padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 20)]),
+                  decoration: BoxDecoration(
+                    color: koyuMod ? Colors.grey[900] : Colors.white, 
+                    borderRadius: BorderRadius.circular(20), 
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 20)]
+                  ),
                   child: Row(
                     children: [
                       ClipRRect(borderRadius: BorderRadius.circular(15), child: Image.asset(_seciliSaha!.resimYolu, width: 80, height: 80, fit: BoxFit.cover)),
@@ -270,7 +306,7 @@ class _HaritaEkraniState extends State<HaritaEkrani> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(_seciliSaha!.isim, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            Text(_seciliSaha!.isim, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: koyuMod ? Colors.white : Colors.black)),
                             const SizedBox(height: 5),
                             Text("📍 ${_seciliSaha!.tamKonum}", maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.grey, fontSize: 12)),
                             const SizedBox(height: 5),

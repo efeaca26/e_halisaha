@@ -16,7 +16,7 @@ class ProfilEkrani extends StatefulWidget {
 class _ProfilEkraniState extends State<ProfilEkrani> {
   final ApiServisi _apiServisi = ApiServisi();
   
-  // Varsayılan değerler (Yükleniyor...)
+  // Varsayılan değerler
   String _adSoyad = "";
   String _email = "";
   int _toplamMac = 0;
@@ -31,22 +31,18 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
     _kullaniciVerileriniYukle();
   }
 
-  // --- KRİTİK DÜZELTME BURADA ---
   void _kullaniciVerileriniYukle() async {
-    // 1. Giriş yapan kullanıcı var mı kontrol et
     final aktifKullanici = KimlikServisi.aktifKullanici;
     
     if (aktifKullanici == null || aktifKullanici['id'] == null) {
-      // Kimse giriş yapmamışsa, kullanıcıyı Login sayfasına at
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const GirisEkrani()), (route) => false);
       });
       return;
     }
 
-    int userId = aktifKullanici['id']; // Artık 1 değil, gerçek ID
+    int userId = aktifKullanici['id'];
 
-    // 2. API'den taze veri çek
     try {
       var userMap = await _apiServisi.kullaniciGetir(userId);
       var maclar = await _apiServisi.randevularimiGetir(userId);
@@ -57,7 +53,7 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
             _adSoyad = userMap['fullName'] ?? "Kullanıcı";
             _email = userMap['email'] ?? "";
             
-            // KimlikServisi'ni de tazeleyelim (Diğer sayfalar için)
+            // Kimlik servisini de güncelle
             KimlikServisi.aktifKullanici?['isim'] = _adSoyad;
             KimlikServisi.aktifKullanici?['email'] = _email;
             KimlikServisi.aktifKullanici?['telefon'] = userMap['phoneNumber'];
@@ -67,7 +63,7 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
         });
       }
     } catch (e) {
-      print("Profil Yükleme Hatası: $e");
+      debugPrint("Profil Yükleme Hatası: $e");
       if (mounted) setState(() => _yukleniyor = false);
     }
   }
@@ -83,7 +79,6 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
   Widget build(BuildContext context) {
     final bool koyuMod = Theme.of(context).brightness == Brightness.dark;
 
-    // Eğer veri yükleniyorsa loading göster
     if (_yukleniyor) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
@@ -105,10 +100,14 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
                       children: [
                         Container(
                           padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: const Color(0xFF22C55E), width: 3)),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle, 
+                            color: koyuMod ? Colors.grey[800] : Colors.grey[200], 
+                            border: Border.all(color: const Color(0xFF22C55E), width: 3)
+                          ),
                           child: CircleAvatar(
                             radius: 60,
-                            backgroundColor: koyuMod ? Colors.grey[800] : Colors.white,
+                            backgroundColor: Colors.transparent, 
                             backgroundImage: _profilResmi != null ? FileImage(_profilResmi!) : null,
                             child: _profilResmi == null ? Icon(Icons.person, size: 60, color: Colors.grey[400]) : null,
                           ),
@@ -138,7 +137,11 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
               // --- İSTATİSTİKLER ---
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                decoration: BoxDecoration(color: koyuMod ? Colors.black26 : Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]),
+                decoration: BoxDecoration(
+                  color: koyuMod ? Colors.black26 : Colors.white, 
+                  borderRadius: BorderRadius.circular(16), 
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)]
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -153,23 +156,41 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
 
               const SizedBox(height: 32),
 
-              // --- MENÜLER (ESKİ TASARIMLAR DAHİL) ---
+              // --- MENÜLER ---
               _profilMenuItem(context, icon: Icons.person_outline, text: "Hesap Bilgileri", gidilecekSayfa: const HesapBilgileriEkrani()),
               _profilMenuItem(context, icon: Icons.history, text: "Geçmiş Rezervasyonlar", gidilecekSayfa: const GecmisRezervasyonlarEkrani()),
-              _profilMenuItem(context, icon: Icons.groups_outlined, text: "Geçmiş Rakipler", gidilecekSayfa: const GecmisDetayEkrani(baslik: "Geçmiş Rakipler", rakipMi: true)),
-              _profilMenuItem(context, icon: Icons.person_add_alt, text: "Geçmiş Oyuncular", gidilecekSayfa: const GecmisDetayEkrani(baslik: "Geçmiş Oyuncular", rakipMi: false)),
               _profilMenuItem(context, icon: Icons.payment, text: "Ödeme Yöntemleri", gidilecekSayfa: const OdemeYontemleriEkrani()),
               _profilMenuItem(context, icon: Icons.settings_outlined, text: "Ayarlar", gidilecekSayfa: const AyarlarEkrani()),
               
               const SizedBox(height: 24),
 
+              // --- ÇIKIŞ YAP BUTONU ---
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444), padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                   onPressed: () {
-                    KimlikServisi.cikisYap(); 
-                    Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const GirisEkrani()), (route) => false);
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text("Çıkış Yap"),
+                        content: const Text("Hesabınızdan çıkış yapmak istediğinize emin misiniz?"),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx), // İptal
+                            child: const Text("İptal", style: TextStyle(color: Colors.grey)),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              // Onayla
+                              KimlikServisi.cikisYap(); 
+                              Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const GirisEkrani()), (route) => false);
+                            },
+                            child: const Text("ÇIKIŞ YAP", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                          ),
+                        ],
+                      ),
+                    );
                   },
                   child: const Text("Çıkış Yap", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                 ),
@@ -181,9 +202,12 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
     );
   }
 
+  // --- YARDIMCI METODLAR ---
+
   Widget _istatistikKutu(String baslik, String deger, bool koyuMod) {
     return Column(children: [Text(deger, style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: baslik == "Puan" ? const Color(0xFF22C55E) : (koyuMod ? Colors.white : Colors.black87))), const SizedBox(height: 4), Text(baslik, style: TextStyle(fontSize: 12, color: Colors.grey[500]))]);
   }
+
   Widget _dikeyCizgi() => Container(height: 30, width: 1, color: Colors.grey.withOpacity(0.3));
   
   Widget _profilMenuItem(BuildContext context, {required IconData icon, required String text, required Widget gidilecekSayfa}) {
@@ -196,7 +220,6 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
         title: Text(text, style: TextStyle(fontWeight: FontWeight.w600, color: koyuMod ? Colors.white : const Color(0xFF374151))),
         trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
         onTap: () {
-          // Sayfaya git ve dönünce verileri güncelle (örneğin isim değişmiş olabilir)
           Navigator.push(context, MaterialPageRoute(builder: (context) => gidilecekSayfa)).then((_) => _kullaniciVerileriniYukle());
         },
       ),

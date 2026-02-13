@@ -108,25 +108,27 @@ class ApiServisi {
 
   // --- KAYIT OL
   // Değişiklik: Opsiyonel 'email' parametresi eklendi
-  Future<bool> kayitOl(String adSoyad, String telefon, String sifre, bool isletmeMi, {String? sahaAdi, String? konum, String? email}) async {
+  // --- KAYIT OL (GÜNCELLENMİŞ: Email Zorunlu, Telefon Opsiyonel) ---
+  Future<bool> kayitOl(String fullName, String email, String password, bool isBusiness, {String? phoneNumber, String? pitchName, String? location}) async {
     try {
       final url = Uri.parse('$_baseUrl/Users');
       
+      print("Kayıt İsteği: $email, $fullName");
+
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
-          "fullName": adSoyad,
-          "phoneNumber": telefon,
-          "email": (email != null && email.isNotEmpty) ? email : null, // E-posta varsa gönder yoksa null
-          "password": sifre,
-          "role": isletmeMi ? "isletme" : "oyuncu",
-          // İşletme ise bu verileri gönder, değilse null gider (sorun olmaz)
-          "pitchName": sahaAdi, 
-          "location": konum
+          "fullName": fullName,
+          "email": email, // Zorunlu oldu
+          "phoneNumber": (phoneNumber != null && phoneNumber.isNotEmpty) ? phoneNumber : null, // Opsiyonel
+          "password": password,
+          "role": isBusiness ? "isletme" : "oyuncu",
+          "pitchName": pitchName,
+          "location": location
         }),
       );
-      
+
       if (response.statusCode == 201 || response.statusCode == 200) {
         return true;
       } else {
@@ -354,5 +356,36 @@ class ApiServisi {
   }
   Future<bool> kullaniciyiOnayla(int userId) async {
     return await kullaniciBilgileriniGuncelle(userId, {"isApproved": true});
+  }
+  // --- İŞLETME: SAHAYA AİT RANDEVULARI GETİR ---
+  Future<List<dynamic>> sahaRandevulariniGetir(String sahaId) async {
+    try {
+      // Tüm rezervasyonları çekip, sadece bu sahaya ait olanları filtreliyoruz
+      // (Backend'de 'GetReservationsByPitchId' varsa o daha iyi olur ama şu an bu çalışır)
+      final tumRezervasyonlar = await tumRezervasyonlariGetir();
+      
+      // Backend'den gelen veri yapısına göre filtreleme:
+      // pitchId int veya string gelebilir, toString() ile güvene alıyoruz.
+      return tumRezervasyonlar.where((rez) => rez['pitchId'].toString() == sahaId.toString()).toList();
+    } catch (e) {
+      print("İşletme Randevu Hatası: $e");
+      return [];
+    }
+  }
+
+  // --- HESAP SİL ---
+  Future<bool> hesabiSil(int userId) async {
+    try {
+      final url = Uri.parse('$_baseUrl/Users/$userId');
+      final response = await http.delete(url);
+      
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print("Hesap Silme Hatası: $e");
+      return false;
+    }
   }
 }

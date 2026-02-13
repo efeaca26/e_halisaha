@@ -21,7 +21,7 @@ class _GizliVideoTetikleyiciState extends State<GizliVideoTetikleyici> {
   Timer? _zamanlayici;
 
   void _sayaciBaslat() {
-    // 5.2 Saniye (5200 milisaniye)
+    // 5.2 Saniye (5200 milisaniye) basılı tutulursa açılır
     _zamanlayici = Timer(const Duration(milliseconds: 5200), _videoyuAc);
   }
 
@@ -65,15 +65,21 @@ class _GizliVideoPenceresiState extends State<_GizliVideoPenceresi> {
   @override
   void initState() {
     super.initState();
-    _controller = VideoPlayerController.asset(widget.videoYolu)
-      ..initialize().then((_) {
-        setState(() => _hazir = true);
-        
-        // 🔊 SESİ SON SES AÇ
-        _controller.setVolume(1.0); 
-        
-        _controller.play();
-        _controller.setLooping(true);
+    // 4. DÜZELTME: iOS Ses ayarları için 'mixWithOthers' eklendi
+    _controller = VideoPlayerController.asset(
+      widget.videoYolu,
+      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+    )..initialize().then((_) {
+        // initialize tamamlanınca çalışır
+        if (mounted) {
+          setState(() => _hazir = true);
+          
+          // 🔊 SESİ SON SES AÇ
+          _controller.setVolume(1.0); 
+          
+          _controller.play();
+          _controller.setLooping(true);
+        }
       });
   }
 
@@ -98,6 +104,8 @@ class _GizliVideoPenceresiState extends State<_GizliVideoPenceresi> {
                   )
                 : const CircularProgressIndicator(color: Colors.white),
           ),
+          
+          // Kapatma Butonu
           Positioned(
             top: 40,
             right: 20,
