@@ -1,7 +1,6 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
@@ -19,11 +18,19 @@ android {
         jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
+    // --- İMZA AYARLARI BURADA BAŞLIYOR ---
+    signingConfigs {
+        create("release") {
+            // upload-keystore.jks dosyasını android/app klasörüne koyduğunu varsayıyoruz
+            storeFile = file("upload-keystore.jks")
+            storePassword = "acf!112621"
+            keyAlias = "upload"
+            keyPassword = "acf!112621"
+        }
+    }
+
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.e_halisaha"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -31,10 +38,12 @@ android {
     }
 
     buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+        getByName("release") {
+            // Debug anahtarını senin gerçek anahtarınla değiştirdik
+            signingConfig = signingConfigs.getByName("release")
+            
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }
