@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../cekirdek/servisler/api_servisi.dart'; // ApiServisi kullanıyoruz
+import '../../cekirdek/servisler/api_servisi.dart';
 
 class KullaniciYonetimiEkrani extends StatefulWidget {
   const KullaniciYonetimiEkrani({super.key});
@@ -10,93 +10,162 @@ class KullaniciYonetimiEkrani extends StatefulWidget {
 
 class _KullaniciYonetimiEkraniState extends State<KullaniciYonetimiEkrani> {
   final ApiServisi _apiServisi = ApiServisi();
-  List<dynamic> kullanicilar = [];
+  List<dynamic> _kullanicilar = [];
   bool _yukleniyor = true;
 
   @override
   void initState() {
     super.initState();
-    _verileriYukle();
+    _kullanicilariGetir();
   }
 
-  void _verileriYukle() async {
-    var gelenListe = await _apiServisi.tumKullanicilariGetir();
+  void _kullanicilariGetir() async {
+    var veriler = await _apiServisi.tumKullanicilariGetir();
     if (mounted) {
       setState(() {
-        kullanicilar = gelenListe;
+        _kullanicilar = veriler;
         _yukleniyor = false;
       });
     }
   }
 
-  void _rolDegistirDialog(Map<String, dynamic> kullanici) {
-    String secilenRol = kullanici['role'] ?? "oyuncu";
-
+  void _rolDegistir(int userId, String mevcutRol, String kullaniciAdi) {
+    String yeniRol = mevcutRol;
+    
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text("${kullanici['fullName']} Rolünü Değiştir"),
-        content: StatefulBuilder(
-          builder: (context, setStateSB) {
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _rolSecenek(baslik: "Oyuncu", deger: "oyuncu", grupDegeri: secilenRol, onChanged: (v) => setStateSB(() => secilenRol = v)),
-                _rolSecenek(baslik: "İşletme", deger: "isletme", grupDegeri: secilenRol, onChanged: (v) => setStateSB(() => secilenRol = v)),
-                _rolSecenek(baslik: "Admin", deger: "admin", grupDegeri: secilenRol, onChanged: (v) => setStateSB(() => secilenRol = v)),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text("Rol Değiştir: $kullaniciAdi"),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  RadioListTile<String>(
+                    title: const Text("Oyuncu"),
+                    value: "oyuncu",
+                    groupValue: yeniRol,
+                    onChanged: (val) => setDialogState(() => yeniRol = val!),
+                  ),
+                  RadioListTile<String>(
+                    title: const Text("İşletme"),
+                    value: "isletme",
+                    groupValue: yeniRol,
+                    onChanged: (val) => setDialogState(() => yeniRol = val!),
+                  ),
+                  RadioListTile<String>(
+                    title: const Text("Admin"),
+                    value: "admin",
+                    groupValue: yeniRol,
+                    onChanged: (val) => setDialogState(() => yeniRol = val!),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("İptal"),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    Navigator.pop(context); // Dialogu kapat
+                    
+                    bool sonuc = await _apiServisi.kullaniciRoluGuncelle(userId, yeniRol);
+                    
+                    // --- DÜZELTME: EKRAN KAPANDIYSA DUR ---
+                    if (!mounted) return;
+
+                    if (sonuc) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Rol güncellendi!"), backgroundColor: Colors.green)
+                      );
+                      _kullanicilariGetir(); // Listeyi yenile
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text("Hata oluştu."), backgroundColor: Colors.red)
+                      );
+                    }
+                  },
+                  child: const Text("Kaydet"),
+                ),
               ],
             );
-          },
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("İptal")),
-          ElevatedButton(
-            onPressed: () async {
-              bool basarili = await _apiServisi.rolGuncelle(kullanici['userId'], kullanici, secilenRol);
-              if (basarili) {
-                _verileriYukle();
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Rol güncellendi!"), backgroundColor: Colors.green));
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Hata oluştu!"), backgroundColor: Colors.red));
-              }
-            },
-            child: const Text("Kaydet"),
-          )
-        ],
-      ),
+          }
+        );
+      },
     );
   }
 
-  Widget _rolSecenek({required String baslik, required String deger, required String grupDegeri, required Function(String) onChanged}) {
-    return RadioListTile<String>(
-      title: Text(baslik),
-      value: deger,
-      groupValue: grupDegeri,
-      onChanged: (val) { if (val != null) onChanged(val); },
-    );
+  Future<void> _kullaniciSil(int userId) async {
+    bool onayla = await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Kullanıcıyı Sil"),
+        content: const Text("Bu işlem geri alınamaz. Emin misiniz?"),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("İptal")),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text("SİL", style: TextStyle(color: Colors.red))),
+        ],
+      )
+    ) ?? false;
+
+    if (onayla) {
+      bool sonuc = await _apiServisi.kullaniciSil(userId);
+      
+      if (!mounted) return;
+
+      if (sonuc) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Kullanıcı silindi.")));
+        _kullanicilariGetir();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Hata oluştu.")));
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Kullanıcı Yönetimi")),
-      body: _yukleniyor ? const Center(child: CircularProgressIndicator()) : kullanicilar.isEmpty ? const Center(child: Text("Kullanıcı yok.")) : ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: kullanicilar.length,
-        itemBuilder: (context, index) {
-          final user = kullanicilar[index];
-          final role = (user['role'] ?? "oyuncu").toString().toLowerCase();
-          return Card(
-            child: ListTile(
-              leading: CircleAvatar(child: Icon(role == 'admin' ? Icons.admin_panel_settings : Icons.person)),
-              title: Text(user['fullName'] ?? "İsimsiz"),
-              subtitle: Text("${user['email']}\nRol: $role"),
-              trailing: IconButton(icon: const Icon(Icons.edit, color: Colors.blue), onPressed: () => _rolDegistirDialog(user)),
-            ),
-          );
-        },
-      ),
+      body: _yukleniyor
+          ? const Center(child: CircularProgressIndicator())
+          : _kullanicilar.isEmpty
+              ? const Center(child: Text("Kayıtlı kullanıcı yok."))
+              : ListView.builder(
+                  itemCount: _kullanicilar.length,
+                  itemBuilder: (context, index) {
+                    var kullanici = _kullanicilar[index];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          child: Text(kullanici['fullName'] != null ? kullanici['fullName'][0] : "?"),
+                        ),
+                        title: Text(kullanici['fullName'] ?? "İsimsiz"),
+                        subtitle: Text("${kullanici['email']}\nRol: ${kullanici['role']}"),
+                        isThreeLine: true,
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.edit, color: Colors.blue),
+                              onPressed: () => _rolDegistir(
+                                kullanici['userId'] ?? kullanici['id'], 
+                                kullanici['role'] ?? "oyuncu",
+                                kullanici['fullName'] ?? "Kullanıcı"
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              onPressed: () => _kullaniciSil(kullanici['userId'] ?? kullanici['id']),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
     );
   }
 }

@@ -19,13 +19,13 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
   final List<Widget> _sayfalar = [
     const AnasayfaIcerik(),
     const HaritaEkrani(),
-    const RakipBulEkrani(), // Rakip Bul Eklendi
+    const RakipBulEkrani(),
     const ProfilEkrani(),
   ];
 
   @override
   Widget build(BuildContext context) {
-    bool koyuMod = Theme.of(context).brightness == Brightness.dark;
+    // "koyuMod" değişkeni kullanılmadığı için kaldırıldı.
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: _sayfalar[_seciliIndex],
@@ -59,7 +59,9 @@ class _AnasayfaIcerikState extends State<AnasayfaIcerik> {
   List<SahaModeli> tumSahalar = [];
   List<SahaModeli> goruntulenenSahalar = [];
   bool _yukleniyor = true;
-  TextEditingController _aramaController = TextEditingController();
+  
+  // DÜZELTME: Controller 'final' yapıldı.
+  final TextEditingController _aramaController = TextEditingController();
 
   @override
   void initState() {
@@ -71,11 +73,10 @@ class _AnasayfaIcerikState extends State<AnasayfaIcerik> {
     try {
       var sahalarJson = await _apiServisi.tumSahalariGetir();
       
-      // --- DÜZELTME: İsimsiz Saha Sorunu ---
-      // API 'name' döndürüyor ama Model 'pitchName' bekliyorsa burada eşliyoruz
+      // API 'name' döndürüyor ama Model 'pitchName' bekliyorsa eşliyoruz
       List<SahaModeli> geciciListe = sahalarJson.map((e) {
         if (e['pitchName'] == null && e['name'] != null) {
-          e['pitchName'] = e['name']; // JSON HACK
+          e['pitchName'] = e['name']; // İsim eşleştirmesi
         }
         return SahaModeli.fromJson(e);
       }).toList();
@@ -88,7 +89,8 @@ class _AnasayfaIcerikState extends State<AnasayfaIcerik> {
         });
       }
     } catch (e) {
-      print("Saha Çekme Hatası: $e");
+      // DÜZELTME: print yerine debugPrint kullanıldı
+      debugPrint("Saha Çekme Hatası: $e");
       if(mounted) setState(() => _yukleniyor = false);
     }
   }
@@ -121,7 +123,8 @@ class _AnasayfaIcerikState extends State<AnasayfaIcerik> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("Merhaba, Efe 👋", style: TextStyle(fontSize: 16, color: Colors.grey)),
+                        // DÜZELTME: const eklendi
+                        const Text("Merhaba, Efe 👋", style: TextStyle(fontSize: 16, color: Colors.grey)),
                         Text("Maç Yapacak Saha Bul", style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: koyuMod ? Colors.white : Colors.black)),
                       ],
                     ),
@@ -132,7 +135,7 @@ class _AnasayfaIcerikState extends State<AnasayfaIcerik> {
                   ],
                 ),
                 const SizedBox(height: 15),
-                // --- ARAMA ÇUBUĞU EKLENDİ ---
+                // Arama Çubuğu
                 TextField(
                   controller: _aramaController,
                   onChanged: _ara,

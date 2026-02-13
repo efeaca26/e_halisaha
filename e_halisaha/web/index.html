@@ -19,31 +19,56 @@
   
   <style>
     body { background-color: #fff; }
+    /* Yükleniyor animasyonu için basit stil */
+    .loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      font-family: sans-serif;
+      font-size: 20px;
+      color: #555;
+    }
   </style>
 </head>
 <body>
+  
+  <div id="loading_indicator" class="loading">
+    e-Halisaha Yükleniyor...
+  </div>
+
   <script>
-    // Flutter Başlatma Ayarları
+    // Service Worker'ı temizle (Eski cache sorunlarını silmek için)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for(let registration of registrations) {
+          registration.unregister();
+        }
+      });
+    }
+
+    // Uygulamayı Direkt Başlat (HTML Renderer Zorlaması ile)
     window.addEventListener('load', function(ev) {
-      
-      // DÜZELTME: IDE hatasını engellemek için değişken tanımladık
-      var serviceWorkerVersion = null;
+      // _flutter loader'ı kullanmadan direkt main.dart.js'i yüklemeyi deniyoruz
+      // Ancak flutter_bootstrap.js kullanıyorsak onun üzerinden gitmeliyiz.
+      // Aşağıdaki yapı en garantisidir:
       
       _flutter.loader.loadEntrypoint({
-        serviceWorker: {
-          serviceWorkerVersion: serviceWorkerVersion,
-        },
         onEntrypointLoaded: function(engineInitializer) {
           engineInitializer.initializeEngine({
-            // iOS Çözümü: HTML Renderer Zorlama
-            renderer: "html"
+            renderer: "html", // iOS Beyaz Ekran Çözümü
           }).then(function(appRunner) {
+            // Yükleniyor yazısını kaldır
+            var loading = document.getElementById("loading_indicator");
+            if(loading) loading.remove();
+            
             appRunner.runApp();
           });
         }
       });
     });
   </script>
+  
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
