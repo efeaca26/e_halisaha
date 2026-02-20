@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb; // Web kontrolü için gerekli
 import '../../cekirdek/servisler/api_servisi.dart';
 import '../anasayfa/anasayfa_ekrani.dart';
 import '../isletme/isletme_ana_sayfa.dart';
+import '../web/web_ana_sayfa.dart'; // Yeni web sayfan
 
 class GirisEkrani extends StatefulWidget {
   const GirisEkrani({super.key});
@@ -22,8 +24,9 @@ class _GirisEkraniState extends State<GirisEkrani> {
   Future<void> _girisYap() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _yukleniyor = true);
+      
+      debugPrint("UI: Giriş denemesi başlıyor...");
 
-      // --- DÜZELTME BURADA: bool yerine var (Map?) kullanıyoruz ---
       var sonuc = await _apiServisi.girisYap(
         _girisEmailController.text.trim(), 
         _girisSifreController.text
@@ -33,31 +36,47 @@ class _GirisEkraniState extends State<GirisEkrani> {
       setState(() => _yukleniyor = false);
 
       if (sonuc != null) {
-        // Başarılı giriş
+        // Başarılı giriş mesajı
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Giriş Başarılı!"), backgroundColor: Colors.green),
         );
 
-        // Kullanıcı tipine göre yönlendirme
-        // Backend'den 'user' objesi içindeki 'role' veya 'userType' bakıyoruz
         final user = sonuc['user'];
-        String rol = (user['role'] ?? "oyuncu").toString().toLowerCase();
 
-        if (rol == "isletme" || rol == "admin") {
+        // =====================================================================
+        // 🌐 WEB VE MOBİL YOL AYRIMI BURADA
+        // =====================================================================
+        if (kIsWeb) {
+          // Eğer tarayıcıdan girildiyse özel web tasarımına gönderiyoruz
           Navigator.pushReplacement(
             context, 
-            MaterialPageRoute(builder: (context) => IsletmeAnaSayfa(kullanici: user))
+            MaterialPageRoute(builder: (context) => WebAnaSayfa(kullanici: user))
           );
         } else {
-          Navigator.pushReplacement(
-            context, 
-            MaterialPageRoute(builder: (context) => const AnasayfaEkrani())
-          );
+          // Eğer mobilden (Android/iOS) girildiyse mevcut rollere göre yönlendiriyoruz
+          String rol = (user['role'] ?? "oyuncu").toString().toLowerCase();
+
+          if (rol == "isletme" || rol == "admin") {
+            Navigator.pushReplacement(
+              context, 
+              MaterialPageRoute(builder: (context) => IsletmeAnaSayfa(kullanici: user))
+            );
+          } else {
+            Navigator.pushReplacement(
+              context, 
+              MaterialPageRoute(builder: (context) => const AnasayfaEkrani())
+            );
+          }
         }
+        // =====================================================================
+
       } else {
-        // Hatalı giriş
+        // Hatalı giriş uyarısı
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("E-posta veya Şifre Hatalı!"), backgroundColor: Colors.red),
+          const SnackBar(
+            content: Text("E-posta veya Şifre Hatalı! (Bağlantınızı ve SQL verilerini kontrol edin)"), 
+            backgroundColor: Colors.red
+          ),
         );
       }
     }
@@ -75,14 +94,22 @@ class _GirisEkraniState extends State<GirisEkrani> {
             key: _formKey,
             child: Column(
               children: [
+                // Logo
                 Image.asset(koyuMod ? 'assets/icon_beyaz.png' : 'assets/icon.png', height: 100),
                 const SizedBox(height: 30),
+                
+                // Kullanıcı Giriş Alanı
                 TextFormField(
                   controller: _girisEmailController,
-                  decoration: const InputDecoration(labelText: "E-posta veya Telefon", prefixIcon: Icon(Icons.person_outline)),
+                  decoration: const InputDecoration(
+                    labelText: "E-posta veya Telefon", 
+                    prefixIcon: Icon(Icons.person_outline)
+                  ),
                   validator: (val) => val!.isEmpty ? "Bu alan boş bırakılamaz" : null,
                 ),
                 const SizedBox(height: 20),
+                
+                // Şifre Alanı
                 TextFormField(
                   controller: _girisSifreController,
                   obscureText: _sifreGizli,
@@ -97,6 +124,8 @@ class _GirisEkraniState extends State<GirisEkrani> {
                   validator: (val) => val!.length < 6 ? "Şifre çok kısa" : null,
                 ),
                 const SizedBox(height: 30),
+                
+                // Giriş Butonu
                 SizedBox(
                   width: double.infinity,
                   height: 50,
