@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb; // Web kontrolü için gerekli
+import 'package:flutter/foundation.dart' show kIsWeb;
 import '../../cekirdek/servisler/api_servisi.dart';
 import '../anasayfa/anasayfa_ekrani.dart';
 import '../isletme/isletme_ana_sayfa.dart';
-import '../web/web_ana_sayfa.dart'; // Yeni web sayfan
+import '../web/web_ana_sayfa.dart';
 
 class GirisEkrani extends StatefulWidget {
   const GirisEkrani({super.key});
@@ -19,125 +19,185 @@ class _GirisEkraniState extends State<GirisEkrani> {
   
   bool _sifreGizli = true;
   bool _yukleniyor = false;
+  bool _beniHatirla = false;
   final ApiServisi _apiServisi = ApiServisi();
 
   Future<void> _girisYap() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _yukleniyor = true);
       
-      debugPrint("UI: Giriş denemesi başlıyor...");
+      try {
+        // Hata ayıklama için terminale yazdırıyoruz
+        print("Giriş isteği gönderiliyor: ${_girisEmailController.text.trim()}");
 
-      var sonuc = await _apiServisi.girisYap(
-        _girisEmailController.text.trim(), 
-        _girisSifreController.text
-      );
-
-      if (!mounted) return;
-      setState(() => _yukleniyor = false);
-
-      if (sonuc != null) {
-        // Başarılı giriş mesajı
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Giriş Başarılı!"), backgroundColor: Colors.green),
+        var sonuc = await _apiServisi.girisYap(
+          _girisEmailController.text.trim(), 
+          _girisSifreController.text
         );
 
-        final user = sonuc['user'];
+        if (!mounted) return;
+        setState(() => _yukleniyor = false);
 
-        // =====================================================================
-        // 🌐 WEB VE MOBİL YOL AYRIMI BURADA
-        // =====================================================================
-        if (kIsWeb) {
-          // Eğer tarayıcıdan girildiyse özel web tasarımına gönderiyoruz
-          Navigator.pushReplacement(
-            context, 
-            MaterialPageRoute(builder: (context) => WebAnaSayfa(kullanici: user))
+        if (sonuc != null) {
+          print("Giriş başarılı! Kullanıcı verisi: ${sonuc['user']}");
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Giriş başarılı!"), 
+              backgroundColor: Color(0xFF22C55E),
+              behavior: SnackBarBehavior.floating,
+            ),
           );
-        } else {
-          // Eğer mobilden (Android/iOS) girildiyse mevcut rollere göre yönlendiriyoruz
-          String rol = (user['role'] ?? "oyuncu").toString().toLowerCase();
 
-          if (rol == "isletme" || rol == "admin") {
+          final user = sonuc['user'];
+
+          if (kIsWeb) {
             Navigator.pushReplacement(
               context, 
-              MaterialPageRoute(builder: (context) => IsletmeAnaSayfa(kullanici: user))
+              MaterialPageRoute(builder: (context) => WebAnaSayfa(kullanici: user))
             );
           } else {
-            Navigator.pushReplacement(
-              context, 
-              MaterialPageRoute(builder: (context) => const AnasayfaEkrani())
-            );
+            String rol = (user['role'] ?? "oyuncu").toString().toLowerCase();
+            if (rol == "sahasahibi" || rol == "isletme" || rol == "admin") {
+              Navigator.pushReplacement(
+                context, 
+                MaterialPageRoute(builder: (context) => IsletmeAnaSayfa(kullanici: user))
+              );
+            } else {
+              Navigator.pushReplacement(
+                context, 
+                MaterialPageRoute(builder: (context) => const AnasayfaEkrani())
+              );
+            }
           }
+        } else {
+          print("Giriş başarısız: API null döndü (Hatalı email/şifre)");
+          _hataGoster("Şifre veya E-posta adresiniz hatalı!");
         }
-        // =====================================================================
-
-      } else {
-        // Hatalı giriş uyarısı
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("E-posta veya Şifre Hatalı! (Bağlantınızı ve SQL verilerini kontrol edin)"), 
-            backgroundColor: Colors.red
-          ),
-        );
+      } catch (e) {
+        // GERÇEK HATAYI BURADA GÖRECEĞİZ
+        print("--- KRİTİK GİRİŞ HATASI ---");
+        print(e);
+        print("---------------------------");
+        
+        setState(() => _yukleniyor = false);
+        _hataGoster("Bağlantı hatası: $e");
       }
     }
   }
 
+  void _hataGoster(String mesaj) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mesaj), 
+        backgroundColor: const Color(0xFFEF4444),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    bool koyuMod = Theme.of(context).brightness == Brightness.dark;
-
     return Scaffold(
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              children: [
-                // Logo
-                Image.asset(koyuMod ? 'assets/icon_beyaz.png' : 'assets/icon.png', height: 100),
-                const SizedBox(height: 30),
-                
-                // Kullanıcı Giriş Alanı
-                TextFormField(
-                  controller: _girisEmailController,
-                  decoration: const InputDecoration(
-                    labelText: "E-posta veya Telefon", 
-                    prefixIcon: Icon(Icons.person_outline)
-                  ),
-                  validator: (val) => val!.isEmpty ? "Bu alan boş bırakılamaz" : null,
-                ),
-                const SizedBox(height: 20),
-                
-                // Şifre Alanı
-                TextFormField(
-                  controller: _girisSifreController,
-                  obscureText: _sifreGizli,
-                  decoration: InputDecoration(
-                    labelText: "Şifre",
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    suffixIcon: IconButton(
-                      icon: Icon(_sifreGizli ? Icons.visibility_off : Icons.visibility),
-                      onPressed: () => setState(() => _sifreGizli = !_sifreGizli),
+      backgroundColor: const Color(0xFFF9FAFB),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF0FDF4),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.login_rounded,
+                      size: 48,
+                      color: Color(0xFF16A34A),
                     ),
                   ),
-                  validator: (val) => val!.length < 6 ? "Şifre çok kısa" : null,
-                ),
-                const SizedBox(height: 30),
-                
-                // Giriş Butonu
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: _yukleniyor ? null : _girisYap,
-                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF22C55E)),
-                    child: _yukleniyor 
-                      ? const CircularProgressIndicator(color: Colors.white) 
-                      : const Text("GİRİŞ YAP", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 24),
+                  const Text(
+                    "Giriş Yap",
+                    style: TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF111827),
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 32),
+                  Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text("E-posta", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _girisEmailController,
+                            decoration: InputDecoration(
+                              hintText: "email@example.com",
+                              filled: true,
+                              fillColor: Colors.white,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            validator: (val) => val!.isEmpty ? "Boş bırakılamaz" : null,
+                          ),
+                          const SizedBox(height: 20),
+                          const Text("Şifre", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _girisSifreController,
+                            obscureText: _sifreGizli,
+                            decoration: InputDecoration(
+                              hintText: "••••••••",
+                              suffixIcon: IconButton(
+                                icon: Icon(_sifreGizli ? Icons.visibility_off : Icons.visibility),
+                                onPressed: () => setState(() => _sifreGizli = !_sifreGizli),
+                              ),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            validator: (val) => val!.length < 6 ? "Şifre kısa" : null,
+                          ),
+                          const SizedBox(height: 24),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 48,
+                            child: ElevatedButton(
+                              onPressed: _yukleniyor ? null : _girisYap,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF16A34A),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              child: _yukleniyor 
+                                ? const CircularProgressIndicator(color: Colors.white) 
+                                : const Text("Giriş Yap", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

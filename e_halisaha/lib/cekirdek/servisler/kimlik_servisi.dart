@@ -1,106 +1,48 @@
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class KimlikServisi {
-  static const _storage = FlutterSecureStorage();
-  
-  static Map<String, dynamic>? _aktifKullanici;
+  static const String _tokenKey = "token";
+  static const String _userKey = "user";
+  static Map<String, dynamic>? _onbellekKullanici;
 
-  // Getter: RAM'deki veriyi okur
-  static Map<String, dynamic>? get aktifKullanici => _aktifKullanici;
-
-  // --- GİRİŞ YAPINCA VERİLERİ KAYDET ---
-  static Future<void> girisYapveKaydet(Map<String, dynamic> apiCevabi) async {
-    print("API'den Gelen Ham Veri: ${apiCevabi['user']}");
-    print("API'den Gelen Rol: ${apiCevabi['user']['role']}");
-
-    // 1. Önce Hafızaya (RAM) al
-    var user = apiCevabi['user'];
-    var token = apiCevabi['token'];
-
-    _aktifKullanici = {
-      'id': user['id'] ?? user['userId'], 
-      'userId': user['id'] ?? user['userId'], 
-      'fullName': user['fullName'],
-      'isim': user['fullName'],
-      'telefon': user['phoneNumber'] ?? user['phone'],
-      'phoneNumber': user['phoneNumber'] ?? user['phone'],
-      'email': user['email'] ?? "",
-      'role': user['role'], 
-      'token': token
-    };
-
-    // 2. Sonra Kalıcı Hafızaya (Disk) Yaz
-    if (token != null) {
-      await _storage.write(key: 'jwt_token', value: token);
-      await _storage.write(key: 'user_id', value: _aktifKullanici!['id'].toString());
-      await _storage.write(key: 'user_name', value: _aktifKullanici!['isim']);
-      await _storage.write(key: 'user_email', value: _aktifKullanici!['email']);
-      await _storage.write(key: 'user_phone', value: _aktifKullanici!['telefon'] ?? "");
-      await _storage.write(key: 'user_role', value: _aktifKullanici!['role'] ?? "oyuncu");
+  static Future<void> girisYapveKaydet(Map<String, dynamic> veri) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (veri['token'] != null) await prefs.setString(_tokenKey, veri['token']);
+    if (veri['user'] != null) {
+      _onbellekKullanici = veri['user'];
+      await prefs.setString(_userKey, jsonEncode(veri['user']));
     }
   }
 
-  // --- EKSİK OLAN METOT BU: KULLANICIYI GETİR ---
-  // Giriş ekranında yönlendirme yapmak için bu metoda ihtiyacımız var.
+  static Map<String, dynamic>? get aktifKullanici => _onbellekKullanici;
+
   static Future<Map<String, dynamic>?> kullaniciGetir() async {
-    // 1. Eğer RAM'de varsa direkt onu döndür (Hızlıdır)
-    if (_aktifKullanici != null) {
-      return _aktifKullanici;
-    }
+    if (_onbellekKullanici != null) return _onbellekKullanici;
+    final prefs = await SharedPreferences.getInstance();
+    String? userStr = prefs.getString(_userKey);
+    if (userStr == null) return null;
+    _onbellekKullanici = jsonDecode(userStr);
+    return _onbellekKullanici;
+  }
 
-    // 2. RAM boşsa (Uygulama yeni açıldıysa), Diskten oku
-    String? token = await _storage.read(key: 'jwt_token');
-    String? idStr = await _storage.read(key: 'user_id');
-    String? name = await _storage.read(key: 'user_name');
-    String? email = await _storage.read(key: 'user_email');
-    String? phone = await _storage.read(key: 'user_phone');
-    String? role = await _storage.read(key: 'user_role');
-
-    // Veriler eksiksizse objeyi oluştur
-    if (token != null && idStr != null) {
-      _aktifKullanici = {
-        'id': int.tryParse(idStr) ?? 0,
-        'userId': int.tryParse(idStr) ?? 0,
-        'isim': name,
-        'fullName': name, // İki türlü de erişilebilsin
-        'email': email,
-        'telefon': phone,
-        'phoneNumber': phone,
-        'role': role,
-        'token': token
-      };
-      return _aktifKullanici;
-    }
-
-    return null; // Kullanıcı giriş yapmamış
+  static Future<bool> girisYapildiMi() async {
+    final prefs = await SharedPreferences.getInstance();
+    String? userStr = prefs.getString(_userKey);
+    if (userStr != null) _onbellekKullanici = jsonDecode(userStr);
+    String? token = prefs.getString(_tokenKey);
+    return token != null && token.isNotEmpty;
   }
 
   static Future<String?> tokenGetir() async {
-    return await _storage.read(key: 'jwt_token');
-  }
-
-  // --- UYGULAMA AÇILINCA VERİLERİ GERİ YÜKLE ---
-  static Future<bool> oturumKontrol() async {
-    var user = await kullaniciGetir(); // Yukarıdaki fonksiyonu kullanıyoruz
-    return user != null;
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_tokenKey);
   }
 
   static Future<void> cikisYap() async {
-    await _storage.deleteAll();
-    _aktifKullanici = null;
-  }
-
-  // --- GETTERLAR (YETKİ KONTROLLERİ) ---
-  static bool get isAdmin {
-    if (_aktifKullanici == null) return false;
-    final rolDegeri = _aktifKullanici!['role'];
-    return rolDegeri?.toString().toLowerCase() == 'admin';
-  }
-
-  static bool get isIsletme {
-    if (_aktifKullanici == null) return false;
-    final rolDegeri = _aktifKullanici!['role'];
-    final rolStr = rolDegeri?.toString().toLowerCase();
-    return rolStr == 'sahasahibi' || rolStr == 'isletme';
+    final prefs = await SharedPreferences.getInstance();
+    _onbellekKullanici = null;
+    await prefs.remove(_tokenKey);
+    await prefs.remove(_userKey);
   }
 }

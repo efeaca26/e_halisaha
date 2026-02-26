@@ -23,18 +23,18 @@ class SahaModeli {
     required this.isletmeSahibiEmail,
   });
 
-  factory SahaModeli.fromJson(Map<String, dynamic> json) {
-    return SahaModeli(
-      id: json['pitchId'].toString(),
-      isim: json['pitchName'] ?? "İsimsiz Saha",
-      fiyat: double.tryParse(json['pricePerHour'].toString()) ?? 0.0,
-      kapora: (double.tryParse(json['pricePerHour'].toString()) ?? 0.0) * 0.3, // %30 Kapora
-      ilce: json['location'] ?? "Belirtilmedi",
-      tamKonum: json['location'] ?? "Konum Yok",
-      puan: 4.5, 
-      resimYolu: "assets/resimler/saha1.png", 
-      ozellikler: ["Otopark", "Duş", "Kafeterya"], 
-      isletmeSahibiEmail: "",
-    );
-  }
+  factory SahaModeli.fromMap(Map<String, dynamic> map) {
+  return SahaModeli(
+    id: map['id'],
+    isim: map['isim'],
+    fiyat: map['fiyat'],
+    kapora: map['kapora'],
+    ilce: map['ilce'],
+    tamKonum: map['tamKonum'],
+    puan: map['puan'],
+    resimYolu: map['resimYolu'],
+    ozellikler: List<String>.from(map['ozellikler']),
+    isletmeSahibiEmail: map['isletmeSahibiEmail'] ?? "",
+  );
+}
 }
