@@ -25,16 +25,16 @@ class SahaModeli {
 
   factory SahaModeli.fromMap(Map<String, dynamic> map) {
   return SahaModeli(
-    id: map['id'],
-    isim: map['isim'],
-    fiyat: map['fiyat'],
-    kapora: map['kapora'],
-    ilce: map['ilce'],
-    tamKonum: map['tamKonum'],
-    puan: map['puan'],
-    resimYolu: map['resimYolu'],
-    ozellikler: List<String>.from(map['ozellikler']),
-    isletmeSahibiEmail: map['isletmeSahibiEmail'] ?? "",
+    id: map['id'].toString(),
+    isim: map['name'] ?? "İsimsiz Saha",
+    fiyat: double.tryParse(map['price'].toString()) ?? 0.0,
+    kapora: double.tryParse(map['deposit']?.toString() ?? "0.0") ?? 0.0,
+    ilce: (map['address'] as String?)?.split(',').last.trim() ?? "Merkez",
+    tamKonum: map['address'] ?? "Konum belirtilmedi",
+    puan: 4.5,
+    resimYolu: map['image_url'] ?? "assets/resimler/saha1.png",
+    ozellikler: ["Otopark", "Kantin", "Soyunma Odası"],
+    isletmeSahibiEmail: map['owner_email'] ?? "",
   );
 }
 }

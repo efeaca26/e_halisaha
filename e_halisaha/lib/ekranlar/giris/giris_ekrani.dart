@@ -57,8 +57,9 @@ class _GirisEkraniState extends State<GirisEkrani> {
               MaterialPageRoute(builder: (context) => WebAnaSayfa(kullanici: user))
             );
           } else {
-            String rol = (user['role'] ?? "oyuncu").toString().toLowerCase();
-            if (rol == "sahasahibi" || rol == "isletme" || rol == "admin") {
+            String rol = (user['role'] ?? "customer").toString().toLowerCase();
+            
+            if (rol == "owner" || rol == "admin") {
               Navigator.pushReplacement(
                 context, 
                 MaterialPageRoute(builder: (context) => IsletmeAnaSayfa(kullanici: user))

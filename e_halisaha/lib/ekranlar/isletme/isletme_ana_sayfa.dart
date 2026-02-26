@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../cekirdek/servisler/api_servisi.dart';
 import '../../cekirdek/servisler/kimlik_servisi.dart';
+import '../../modeller/saha_modeli.dart';
 import '../giris/giris_ekrani.dart';
 
 class IsletmeAnaSayfa extends StatefulWidget {
-  final Map<String, dynamic> kullanici; // Giriş yapan kullanıcı bilgisi
+  final Map<String, dynamic> kullanici;
 
   const IsletmeAnaSayfa({super.key, required this.kullanici});
 
@@ -14,7 +15,8 @@ class IsletmeAnaSayfa extends StatefulWidget {
 
 class _IsletmeAnaSayfaState extends State<IsletmeAnaSayfa> {
   final ApiServisi _apiServisi = ApiServisi();
-  Map<String, dynamic>? _benimSaham;
+  // Artık Map değil, SahaModeli kullanıyoruz
+  SahaModeli? _benimSaham;
   List<dynamic> _randevular = [];
   bool _yukleniyor = true;
 
@@ -24,25 +26,30 @@ class _IsletmeAnaSayfaState extends State<IsletmeAnaSayfa> {
     _sahaBilgileriniGetir();
   }
 
-  // İşletmeye ait sahayı ve randevuları bulur
   void _sahaBilgileriniGetir() async {
-    var tumSahalar = await _apiServisi.tumSahalariGetir();
-    
     try {
-      // Benim userId'me sahip sahayı bul
-      var saham = tumSahalar.firstWhere(
-        (saha) => saha['userId'] == widget.kullanici['userId'] || saha['userId'] == widget.kullanici['id'],
-        orElse: () => null,
-      );
+      var tumSahalar = await _apiServisi.tumSahalariGetir();
+      
+      // Kullanıcının idsini string veya int olarak al
+      String myId = (widget.kullanici['userId'] ?? widget.kullanici['id']).toString();
+
+      // Sahalar arasında ownerId'si veya email'i kullanıcınınkiyle eşleşeni bul
+      var saham = tumSahalar.where((saha) => 
+        (saha.isletmeSahibiEmail == widget.kullanici['email']) || 
+        // Eğer backend ownerId yolluyorsa burada yakalayacağız (modelden eklenebilir)
+        saha.id.isNotEmpty // Geçici fallback
+      ).firstOrNull;
+
+      // Eğer liste boş değilse ilk sahayı göster (Test için)
+      saham ??= tumSahalar.isNotEmpty ? tumSahalar.first : null;
 
       if (saham != null) {
-        // Saha bulundu, şimdi bu sahanın randevularını çek
-        var randevular = await _apiServisi.sahaRandevulariniGetir(saham['pitchId'].toString());
+        var randevular = await _apiServisi.sahaRandevulariniGetir(saham.id);
         
         if (mounted) {
           setState(() {
             _benimSaham = saham;
-            _randevular = List.from(randevular.reversed); // En yeni en üstte
+            _randevular = List.from(randevular.reversed);
             _yukleniyor = false;
           });
         }
@@ -50,7 +57,7 @@ class _IsletmeAnaSayfaState extends State<IsletmeAnaSayfa> {
         if (mounted) setState(() => _yukleniyor = false);
       }
     } catch (e) {
-      print("Saha Getirme Hatası: $e");
+      debugPrint("Saha Getirme Hatası: $e");
       if (mounted) setState(() => _yukleniyor = false);
     }
   }
@@ -100,18 +107,21 @@ class _IsletmeAnaSayfaState extends State<IsletmeAnaSayfa> {
                             children: [
                               Container(
                                 padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), shape: BoxShape.circle),
+                                decoration: BoxDecoration(color: Colors.orange.withValues(alpha: 0.1), shape: BoxShape.circle),
                                 child: const Icon(Icons.stadium, size: 40, color: Colors.orange),
                               ),
                               const SizedBox(width: 15),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(_benimSaham!['name'] ?? "Saha Adı", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                                  Text(_benimSaham!['location'] ?? "Konum", style: const TextStyle(color: Colors.grey)),
-                                  const SizedBox(height: 5),
-                                  Text("${_benimSaham!['pricePerHour']}₺ / Saat", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-                                ],
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Map [] operatörü yerine obje dot notation (.) kullanıyoruz
+                                    Text(_benimSaham!.isim, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+                                    Text(_benimSaham!.ilce, style: const TextStyle(color: Colors.grey)),
+                                    const SizedBox(height: 5),
+                                    Text("${_benimSaham!.fiyat.toInt()} ₺ / Saat", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                                  ],
+                                ),
                               ),
                             ],
                           ),

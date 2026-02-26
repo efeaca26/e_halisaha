@@ -24,23 +24,30 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
   }
 
   Future<void> _verileriYukle() async {
-    // KimlikServisi metodunu artık bulabilecek
-    final user = await KimlikServisi.kullaniciGetir();
-    final veriler = await _apiServisi.tumSahalariGetir();
-    
-    if (mounted) {
-      setState(() {
-        _kullaniciAdi = user?['name']?.split(' ')[0] ?? "Futbolsever";
-        _sahalar = veriler.map((v) => SahaModeli.fromMap(v)).toList();
-        _yukleniyor = false;
-      });
+    try {
+      final user = await KimlikServisi.kullaniciGetir();
+      // ApiServisi artık direkt List<SahaModeli> döndüğü için map işlemine gerek yok
+      final veriler = await _apiServisi.tumSahalariGetir();
+      
+      if (mounted) {
+        setState(() {
+          _kullaniciAdi = user?['name']?.split(' ')[0] ?? "Futbolsever";
+          _sahalar = veriler; // Doğrudan atama yapıyoruz
+          _yukleniyor = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Veri yükleme hatası: $e");
+      if (mounted) {
+        setState(() => _yukleniyor = false);
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB), // Web bg-gray-50
+      backgroundColor: const Color(0xFFF9FAFB),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _verileriYukle,
@@ -59,11 +66,16 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text("Merhaba, $_kullaniciAdi 👋", style: const TextStyle(fontSize: 16, color: Color(0xFF4B5563))),
-                              const Text("Hangi sahada maç var?", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF111827))),
+                              Text("Merhaba, ${_kullaniciAdi ?? "Futbolsever"} 👋", 
+                                style: const TextStyle(fontSize: 16, color: Color(0xFF4B5563))),
+                              const Text("Hangi sahada maç var?", 
+                                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF111827))),
                             ],
                           ),
-                          const CircleAvatar(backgroundColor: Colors.white, child: Icon(Icons.person_outline, color: Color(0xFF16A34A))),
+                          const CircleAvatar(
+                            backgroundColor: Colors.white, 
+                            child: Icon(Icons.person_outline, color: Color(0xFF16A34A))
+                          ),
                         ],
                       ),
                       const SizedBox(height: 24),
@@ -74,7 +86,7 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.03), // HATA DÜZELTİLDİ
+                              color: Colors.black.withValues(alpha: 0.03),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
@@ -93,16 +105,22 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
                 ),
               ),
               _yukleniyor
-                  ? const SliverFillRemaining(child: Center(child: CircularProgressIndicator(color: Color(0xFF16A34A))))
-                  : SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) => _sahaKartiniOlustur(_sahalar[index]),
-                          childCount: _sahalar.length,
+                  ? const SliverFillRemaining(
+                      child: Center(child: CircularProgressIndicator(color: Color(0xFF16A34A)))
+                    )
+                  : _sahalar.isEmpty
+                      ? const SliverFillRemaining(
+                          child: Center(child: Text("Henüz saha bulunamadı."))
+                        )
+                      : SliverPadding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          sliver: SliverList(
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) => _sahaKartiniOlustur(_sahalar[index]),
+                              childCount: _sahalar.length,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
             ],
           ),
         ),
@@ -112,7 +130,10 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
 
   Widget _sahaKartiniOlustur(SahaModeli saha) {
     return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SahaDetayEkrani(saha: saha))),
+      onTap: () => Navigator.push(
+        context, 
+        MaterialPageRoute(builder: (context) => SahaDetayEkrani(saha: saha))
+      ),
       child: Container(
         margin: const EdgeInsets.only(bottom: 20),
         decoration: BoxDecoration(
@@ -120,7 +141,7 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04), // HATA DÜZELTİLDİ
+              color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 15,
               offset: const Offset(0, 5),
             ),
@@ -131,7 +152,13 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
           children: [
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              child: Container(height: 180, color: const Color(0xFFF3F4F6), child: const Center(child: Icon(Icons.sports_soccer, size: 48, color: Color(0xFFD1D5DB)))),
+              child: Container(
+                height: 180, 
+                color: const Color(0xFFF3F4F6), 
+                child: const Center(
+                  child: Icon(Icons.sports_soccer, size: 48, color: Color(0xFFD1D5DB))
+                )
+              ),
             ),
             Padding(
               padding: const EdgeInsets.all(16),
@@ -141,8 +168,15 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(saha.isim, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      Text("${saha.fiyat.toInt()} ₺", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF16A34A))),
+                      Expanded(
+                        child: Text(saha.isim, 
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis
+                        ),
+                      ),
+                      Text("${saha.fiyat.toInt()} ₺", 
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF16A34A))
+                      ),
                     ],
                   ),
                   Text(saha.ilce, style: const TextStyle(color: Color(0xFF6B7280))),

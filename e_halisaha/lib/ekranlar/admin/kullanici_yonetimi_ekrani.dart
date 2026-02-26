@@ -46,19 +46,31 @@ class _KullaniciYonetimiEkraniState extends State<KullaniciYonetimiEkrani> {
                     title: const Text("Oyuncu"),
                     value: "oyuncu",
                     groupValue: yeniRol,
-                    onChanged: (val) => setDialogState(() => yeniRol = val!),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() => yeniRol = val);
+                      }
+                    },
                   ),
                   RadioListTile<String>(
                     title: const Text("İşletme"),
                     value: "isletme",
                     groupValue: yeniRol,
-                    onChanged: (val) => setDialogState(() => yeniRol = val!),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() => yeniRol = val);
+                      }
+                    },
                   ),
                   RadioListTile<String>(
                     title: const Text("Admin"),
                     value: "admin",
                     groupValue: yeniRol,
-                    onChanged: (val) => setDialogState(() => yeniRol = val!),
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() => yeniRol = val);
+                      }
+                    },
                   ),
                 ],
               ),
@@ -73,7 +85,6 @@ class _KullaniciYonetimiEkraniState extends State<KullaniciYonetimiEkrani> {
                     
                     bool sonuc = await _apiServisi.kullaniciRoluGuncelle(userId, yeniRol);
                     
-                    // --- DÜZELTME: EKRAN KAPANDIYSA DUR ---
                     if (!mounted) return;
 
                     if (sonuc) {
@@ -140,7 +151,9 @@ class _KullaniciYonetimiEkraniState extends State<KullaniciYonetimiEkrani> {
                       margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       child: ListTile(
                         leading: CircleAvatar(
-                          child: Text(kullanici['fullName'] != null ? kullanici['fullName'][0] : "?"),
+                          child: Text(kullanici['fullName'] != null && kullanici['fullName'].toString().isNotEmpty 
+                              ? kullanici['fullName'][0] 
+                              : "?"),
                         ),
                         title: Text(kullanici['fullName'] ?? "İsimsiz"),
                         subtitle: Text("${kullanici['email']}\nRol: ${kullanici['role']}"),

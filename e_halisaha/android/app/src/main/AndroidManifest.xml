@@ -2,6 +2,7 @@
     package="com.example.e_halisaha">
 
     <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -11,7 +12,6 @@
         android:label="eHalısaha"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
-        
         android:usesCleartextTraffic="true">
         
         <meta-data
