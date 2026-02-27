@@ -4,6 +4,7 @@ import '../../cekirdek/servisler/api_servisi.dart';
 import '../anasayfa/anasayfa_ekrani.dart';
 import '../isletme/isletme_ana_sayfa.dart';
 import '../web/web_ana_sayfa.dart';
+import '../admin/admin_ana_sayfa.dart';
 
 class GirisEkrani extends StatefulWidget {
   const GirisEkrani({super.key});
@@ -27,7 +28,6 @@ class _GirisEkraniState extends State<GirisEkrani> {
       setState(() => _yukleniyor = true);
       
       try {
-        // Hata ayıklama için terminale yazdırıyoruz
         print("Giriş isteği gönderiliyor: ${_girisEmailController.text.trim()}");
 
         var sonuc = await _apiServisi.girisYap(
@@ -59,12 +59,20 @@ class _GirisEkraniState extends State<GirisEkrani> {
           } else {
             String rol = (user['role'] ?? "customer").toString().toLowerCase();
             
-            if (rol == "owner" || rol == "admin") {
+            if (rol == "admin") {
+              // Admin sayfası parametre istemiyor
+              Navigator.pushReplacement(
+                context, 
+                MaterialPageRoute(builder: (context) => const AdminAnaSayfa())
+              );
+            } else if (rol == "sahasahibi" || rol == "owner") {
+              // İşletme sayfası "kullanici" parametresini zorunlu istiyor
               Navigator.pushReplacement(
                 context, 
                 MaterialPageRoute(builder: (context) => IsletmeAnaSayfa(kullanici: user))
               );
             } else {
+              // Normal kullanıcı sayfası parametre istemiyor
               Navigator.pushReplacement(
                 context, 
                 MaterialPageRoute(builder: (context) => const AnasayfaEkrani())
@@ -76,7 +84,6 @@ class _GirisEkraniState extends State<GirisEkrani> {
           _hataGoster("Şifre veya E-posta adresiniz hatalı!");
         }
       } catch (e) {
-        // GERÇEK HATAYI BURADA GÖRECEĞİZ
         print("--- KRİTİK GİRİŞ HATASI ---");
         print(e);
         print("---------------------------");
@@ -139,7 +146,7 @@ class _GirisEkraniState extends State<GirisEkrani> {
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
+                          color: Colors.black.withOpacity(0.05),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -150,12 +157,12 @@ class _GirisEkraniState extends State<GirisEkrani> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text("E-posta", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                          const Text("E-posta veya Kullanıcı Adı", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                           const SizedBox(height: 8),
                           TextFormField(
                             controller: _girisEmailController,
                             decoration: InputDecoration(
-                              hintText: "email@example.com",
+                              hintText: "admin@ehalisaha.com",
                               filled: true,
                               fillColor: Colors.white,
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -176,7 +183,7 @@ class _GirisEkraniState extends State<GirisEkrani> {
                               ),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                             ),
-                            validator: (val) => val!.length < 6 ? "Şifre kısa" : null,
+                            validator: (val) => val!.length < 6 ? "Şifre çok kısa" : null,
                           ),
                           const SizedBox(height: 24),
                           SizedBox(
@@ -189,7 +196,11 @@ class _GirisEkraniState extends State<GirisEkrani> {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               ),
                               child: _yukleniyor 
-                                ? const CircularProgressIndicator(color: Colors.white) 
+                                ? const SizedBox(
+                                    height: 24,
+                                    width: 24,
+                                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                                  ) 
                                 : const Text("Giriş Yap", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                             ),
                           ),
