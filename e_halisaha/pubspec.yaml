@@ -22,16 +22,14 @@ dependencies:
   mask_text_input_formatter: ^2.9.0
   video_player: ^2.10.1
   shared_preferences: ^2.2.2
+  intl: ^0.20.2 # Sürüm 0.18.1'den 0.20.2'ye güncellendi (Hata buradaydı)
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  
-  # İkon paketi buraya eklendi (Hizalamaya dikkat edildi)
   flutter_launcher_icons: ^0.13.1
   flutter_lints: ^2.0.0
 
-# Flutter Ayarları
 flutter:
   uses-material-design: true
   assets:
@@ -42,7 +40,6 @@ flutter:
     - assets/icon_siyah.png
     - assets/video.mp4
 
-# İkon Oluşturma Ayarları (En sola dayalı olmalı)
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true

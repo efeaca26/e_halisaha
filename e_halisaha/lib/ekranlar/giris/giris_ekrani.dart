@@ -5,6 +5,7 @@ import '../anasayfa/anasayfa_ekrani.dart';
 import '../isletme/isletme_ana_sayfa.dart';
 import '../web/web_ana_sayfa.dart';
 import '../admin/admin_ana_sayfa.dart';
+import 'kayit_ekrani.dart'; // Kayıt ekranını içe aktarıyoruz
 
 class GirisEkrani extends StatefulWidget {
   const GirisEkrani({super.key});
@@ -65,7 +66,7 @@ class _GirisEkraniState extends State<GirisEkrani> {
                 context, 
                 MaterialPageRoute(builder: (context) => const AdminAnaSayfa())
               );
-            } else if (rol == "sahasahibi" || rol == "owner") {
+            } else if (rol == "sahasahibi" || rol == "owner" || rol == "isletme") {
               // İşletme sayfası "kullanici" parametresini zorunlu istiyor
               Navigator.pushReplacement(
                 context, 
@@ -146,7 +147,7 @@ class _GirisEkraniState extends State<GirisEkrani> {
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -162,7 +163,7 @@ class _GirisEkraniState extends State<GirisEkrani> {
                           TextFormField(
                             controller: _girisEmailController,
                             decoration: InputDecoration(
-                              hintText: "admin@ehalisaha.com",
+                              hintText: "mail@example.com",
                               filled: true,
                               fillColor: Colors.white,
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -207,6 +208,33 @@ class _GirisEkraniState extends State<GirisEkrani> {
                         ],
                       ),
                     ),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  // KAYIT OL YÖNLENDİRMESİ BURAYA EKLENDİ
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        "Hesabınız yok mu?",
+                        style: TextStyle(color: Color(0xFF6B7280)),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const KayitEkrani()),
+                          );
+                        },
+                        child: const Text(
+                          "Kayıt Ol",
+                          style: TextStyle(
+                            color: Color(0xFF16A34A),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

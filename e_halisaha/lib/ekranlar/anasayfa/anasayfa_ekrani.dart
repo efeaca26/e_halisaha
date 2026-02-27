@@ -42,7 +42,8 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
       if (mounted) {
         setState(() {
           _kullanici = user;
-          _kullaniciAdi = user?['name']?.split(' ')[0] ?? "Futbolsever";
+          // İsmi fullName'den çekmeye çalışıyoruz, yoksa split yapıyoruz
+          _kullaniciAdi = user?['fullName'] ?? user?['name'] ?? "Futbolsever";
           _kullaniciEmail = user?['email'] ?? "";
           _kullaniciRol = user?['role']?.toString().toLowerCase() ?? "oyuncu";
           _sahalar = veriler;
@@ -83,7 +84,6 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // --- ÜST KISIM: SADECE HAMBURGER VE SELAMLAMA ---
                       Row(
                         children: [
                           GestureDetector(
@@ -94,7 +94,6 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(14),
                                 boxShadow: [
-                                  // Gölge belirginleştirildi
                                   BoxShadow(
                                     color: Colors.black.withValues(alpha: 0.1), 
                                     blurRadius: 15, 
@@ -118,7 +117,6 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
                         ],
                       ),
                       const SizedBox(height: 24),
-                      // Arama Çubuğu
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         decoration: BoxDecoration(
@@ -185,14 +183,6 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
                 const SizedBox(height: 16),
                 Text(_kullaniciAdi ?? "Misafir", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
                 Text(_kullaniciEmail ?? "Giriş yapılmadı", style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.8))),
-                if (_kullaniciRol == 'admin' || _kullaniciRol == 'isletme' || _kullaniciRol == 'sahasahibi') ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(20)),
-                    child: Text(_kullaniciRol!.toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
-                  ),
-                ],
               ],
             ),
           ),
@@ -224,11 +214,6 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
                     }
                   }, ikonRengi: Colors.orange),
                 ],
-                const Divider(),
-                _drawerListTile(Icons.settings_outlined, "Ayarlar", () {
-                  Navigator.pop(context);
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const AyarlarSayfasi()));
-                }),
               ],
             ),
           ),
@@ -238,16 +223,12 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFEE2E2),
                 foregroundColor: const Color(0xFFEF4444),
-                elevation: 0,
                 minimumSize: const Size(double.infinity, 50),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
               icon: const Icon(Icons.logout),
-              label: const Text("Çıkış Yap", style: TextStyle(fontWeight: FontWeight.bold)),
-              onPressed: () {
-                Navigator.pop(context);
-                _cikisOnayiGoster();
-              },
+              label: const Text("Çıkış Yap"),
+              onPressed: _cikisYap,
             ),
           ),
         ],
@@ -260,30 +241,7 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
       leading: Icon(ikon, color: ikonRengi),
       title: Text(baslik, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF111827))),
       trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFFD1D5DB)),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       onTap: onTap,
-    );
-  }
-
-  void _cikisOnayiGoster() {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Çıkış Yap"),
-        content: const Text("Hesabınızdan çıkış yapmak istediğinize emin misiniz?"),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("İptal", style: TextStyle(color: Colors.grey))),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-            onPressed: () {
-              Navigator.pop(ctx);
-              _cikisYap();
-            },
-            child: const Text("Çıkış Yap", style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
     );
   }
 
@@ -307,11 +265,23 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
           children: [
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-              child: Container(
-                height: 180, 
-                color: const Color(0xFFF3F4F6), 
-                child: const Center(child: Icon(Icons.sports_soccer, size: 48, color: Color(0xFFD1D5DB)))
-              ),
+              child: saha.resimYolu.isNotEmpty 
+                ? Image.network(
+                    saha.resimYolu,
+                    height: 180,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      height: 180, 
+                      color: const Color(0xFFF3F4F6), 
+                      child: const Center(child: Icon(Icons.sports_soccer, size: 48, color: Color(0xFFD1D5DB)))
+                    ),
+                  )
+                : Container(
+                    height: 180, 
+                    color: const Color(0xFFF3F4F6), 
+                    child: const Center(child: Icon(Icons.sports_soccer, size: 48, color: Color(0xFFD1D5DB)))
+                  ),
             ),
             Padding(
               padding: const EdgeInsets.all(16),

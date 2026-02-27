@@ -1,138 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../cekirdek/servisler/api_servisi.dart';
-import '../../cekirdek/servisler/kimlik_servisi.dart';
+import 'package:intl/intl.dart';
 
-// ---------------------------------------------------
-// 1. PROFİL DÜZENLEME SAYFASI
-// ---------------------------------------------------
-class ProfilDuzenleSayfasi extends StatefulWidget {
-  const ProfilDuzenleSayfasi({super.key});
-
-  @override
-  State<ProfilDuzenleSayfasi> createState() => _ProfilDuzenleSayfasiState();
-}
-
-class _ProfilDuzenleSayfasiState extends State<ProfilDuzenleSayfasi> {
-  final ApiServisi _apiServisi = ApiServisi();
-  final _formKey = GlobalKey<FormState>();
-  
-  late TextEditingController _adController;
-  late TextEditingController _emailController;
-  bool _yukleniyor = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _adController = TextEditingController();
-    _emailController = TextEditingController();
-    _bilgileriDoldur();
-  }
-
-  void _bilgileriDoldur() async {
-    final user = await KimlikServisi.kullaniciGetir();
-    if (mounted && user != null) {
-      setState(() {
-        _adController.text = user['fullName'] ?? user['full_name'] ?? user['name'] ?? "";
-        _emailController.text = user['email'] ?? "";
-      });
-    }
-  }
-
-  Future<void> _kaydet() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() => _yukleniyor = true);
-      
-      final user = await KimlikServisi.kullaniciGetir();
-      if (user != null) {
-        int id = user['userId'] ?? user['id'] ?? 0;
-        bool basarili = await _apiServisi.bilgileriGuncelle(
-          id,
-          _adController.text,
-          _emailController.text,
-          user['phoneNumber'] ?? user['phone'] ?? "",
-          "" 
-        );
-
-        if (!mounted) return;
-        setState(() => _yukleniyor = false);
-
-        if (basarili) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("✅ Profil güncellendi!"), backgroundColor: Colors.green),
-          );
-          Navigator.pop(context);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("❌ Güncelleme başarısız."), backgroundColor: Colors.red),
-          );
-        }
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
-      appBar: AppBar(
-        title: const Text("Profili Düzenle", style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              _ozelInput(_adController, "Ad Soyad", Icons.person_outline),
-              const SizedBox(height: 20),
-              _ozelInput(_emailController, "E-posta", Icons.email_outlined, klavyeTipi: TextInputType.emailAddress),
-              const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: _yukleniyor ? null : _kaydet,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF16A34A),
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
-                  child: _yukleniyor 
-                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
-                    : const Text("DEĞİŞİKLİKLERİ KAYDET", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _ozelInput(TextEditingController controller, String etiket, IconData ikon, {TextInputType klavyeTipi = TextInputType.text}) {
-    return TextFormField(
-      controller: controller,
-      keyboardType: klavyeTipi,
-      decoration: InputDecoration(
-        labelText: etiket,
-        prefixIcon: Icon(ikon, color: const Color(0xFF16A34A)),
-        filled: true,
-        fillColor: Colors.white,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey[200]!)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: Colors.grey[200]!)),
-      ),
-      validator: (val) => val!.isEmpty ? "Bu alan boş bırakılamaz" : null,
-    );
-  }
-}
-
-// ---------------------------------------------------
-// 2. RANDEVULARIM (GEÇMİŞ REZERVASYONLAR) SAYFASI
-// ---------------------------------------------------
 class RandevularimSayfasi extends StatefulWidget {
   const RandevularimSayfasi({super.key});
 
@@ -148,13 +17,12 @@ class _RandevularimSayfasiState extends State<RandevularimSayfasi> {
   @override
   void initState() {
     super.initState();
-    _verileriGetir();
+    _verileriYukle();
   }
 
-  Future<void> _verileriGetir() async {
-    setState(() => _yukleniyor = true);
+  Future<void> _verileriYukle() async {
     try {
-      var veriler = await _apiServisi.randevularimiGetir();
+      final veriler = await _apiServisi.rezervasyonlarimiGetir();
       if (mounted) {
         setState(() {
           _randevular = veriler;
@@ -162,7 +30,6 @@ class _RandevularimSayfasiState extends State<RandevularimSayfasi> {
         });
       }
     } catch (e) {
-      debugPrint("Randevu listeleme hatası: $e");
       if (mounted) setState(() => _yukleniyor = false);
     }
   }
@@ -172,156 +39,176 @@ class _RandevularimSayfasiState extends State<RandevularimSayfasi> {
     return Scaffold(
       backgroundColor: const Color(0xFFF9FAFB),
       appBar: AppBar(
-        title: const Text("Rezervasyonlarım", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
-        centerTitle: true,
+        title: const Text("Rezervasyonlarım", style: TextStyle(color: Color(0xFF111827), fontWeight: FontWeight.bold)),
         backgroundColor: Colors.white,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Color(0xFF111827)),
       ),
       body: _yukleniyor
           ? const Center(child: CircularProgressIndicator(color: Color(0xFF16A34A)))
-          : RefreshIndicator(
-              onRefresh: _verileriGetir,
-              color: const Color(0xFF16A34A),
-              child: _randevular.isEmpty
-                  ? ListView(
-                      children: [
-                        SizedBox(height: MediaQuery.of(context).size.height * 0.25),
-                        const Icon(Icons.calendar_today_outlined, size: 80, color: Color(0xFFD1D5DB)),
-                        const SizedBox(height: 16),
-                        const Center(child: Text("Henüz bir randevunuz bulunmuyor.", style: TextStyle(color: Colors.grey, fontSize: 16))),
-                      ],
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _randevular.length,
-                      itemBuilder: (context, index) {
-                        final randevu = _randevular[index];
-                        
-                        // --- DÜZELTİLEN YER: toLocal() EKLENDİ ---
-                        String? rawDate = (randevu['startTime'] ?? randevu['start_time'])?.toString();
-                        DateTime start = rawDate != null 
-                            ? DateTime.parse(rawDate).toLocal() 
-                            : DateTime.now();
-                        
-                        String formatliTarih = "${start.day.toString().padLeft(2, '0')}/${start.month.toString().padLeft(2, '0')}/${start.year}";
-                        String formatliSaat = "${start.hour.toString().padLeft(2, '0')}:${start.minute.toString().padLeft(2, '0')}";
-
-                        // ZIRHLI SAHA İSMİ OKUMA
-                        String sahaIsmi = (randevu['pitchName'] ?? randevu['pitch']?['name'] ?? "Bilinmeyen Saha").toString();
-                        
-                        // DURUM KONTROLÜ
-                        String durum = (randevu['status'] ?? "Pending").toString().toLowerCase();
-
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 15, offset: const Offset(0, 5)),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 56, height: 56,
-                                decoration: BoxDecoration(color: const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(14)),
-                                child: const Icon(Icons.sports_soccer, color: Color(0xFF16A34A), size: 28),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(sahaIsmi, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF111827))),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.access_time, size: 14, color: Colors.grey),
-                                        const SizedBox(width: 4),
-                                        Text("$formatliTarih - $formatliSaat", style: const TextStyle(color: Color(0xFF6B7280), fontSize: 13)),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              _durumRozeti(durum),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-            ),
+          : _randevular.isEmpty
+              ? _bosEkranGoster()
+              : RefreshIndicator(
+                  onRefresh: _verileriYukle,
+                  color: const Color(0xFF16A34A),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(20),
+                    itemCount: _randevular.length,
+                    itemBuilder: (context, index) {
+                      try {
+                        return _randevuKarti(_randevular[index]);
+                      } catch (e) {
+                        return const SizedBox.shrink();
+                      }
+                    },
+                  ),
+                ),
     );
   }
 
-  Widget _durumRozeti(String durum) {
-    bool onayli = durum == 'confirmed';
-    bool iptal = durum == 'cancelled';
+  Widget _randevuKarti(dynamic randevu) {
+    // 1. Verileri Güvenli Bir Şekilde Çekme
+    final String pitchName = (randevu['pitch_name'] ?? "Bilinmeyen Saha").toString();
+    final String facilityName = (randevu['facility_name'] ?? "Tesis Bilgisi Yok").toString();
+    final String status = (randevu['status'] ?? "pending").toString().toLowerCase();
+    
+    // Fiyat
+    double priceValue = 0.0;
+    if (randevu['total_price'] != null) {
+      priceValue = double.tryParse(randevu['total_price'].toString()) ?? 0.0;
+    }
 
+    // 2. Tarih ve Saat Formatlama (Hatasız)
+    String formatliTarih = "Bilinmeyen Tarih";
+    String saatString = "--:--";
+    
+    try {
+      if (randevu['start_time'] != null) {
+        String timeStr = randevu['start_time'].toString();
+        // Backend'den "2026-02-28T06:00:00.000Z" geliyor, bunu cihaza göre (toLocal) çeviriyoruz
+        DateTime tarih = DateTime.parse(timeStr).toLocal();
+        formatliTarih = DateFormat('dd MMMM yyyy', 'tr_TR').format(tarih);
+        saatString = DateFormat('HH:mm').format(tarih);
+      }
+    } catch (e) {
+      debugPrint("Tarih formatlanamadı: $e");
+    }
+
+    // 3. Durum Renklerini Belirleme
+    Color durumKutuRengi = const Color(0xFFFEF3C7); // Sarımsı arka plan (beklemede)
+    Color durumYaziRengi = const Color(0xFF92400E); // Koyu sarı yazı (beklemede)
+    String durumMetni = "Beklemede";
+
+    if (status == 'confirmed' || status == 'onaylandı') {
+      durumKutuRengi = const Color(0xFFDBEAFE); // Mavimsi arka plan
+      durumYaziRengi = const Color(0xFF1E40AF); // Koyu mavi yazı
+      durumMetni = "Onaylandı";
+    } else if (status == 'cancelled' || status == 'iptal') {
+      durumKutuRengi = const Color(0xFFFEE2E2); // Kırmızımsı arka plan
+      durumYaziRengi = const Color(0xFF991B1B); // Koyu kırmızı yazı
+      durumMetni = "İptal Edildi";
+    }
+
+    // 4. Kart Tasarımı
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: onayli ? Colors.green[50] : (iptal ? Colors.red[50] : Colors.orange[50]),
-        borderRadius: BorderRadius.circular(10),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
-      child: Text(
-        onayli ? "ONAYLANDI" : (iptal ? "İPTAL" : "BEKLEMEDE"),
-        style: TextStyle(
-          color: onayli ? Colors.green : (iptal ? Colors.red : Colors.orange),
-          fontSize: 10,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------
-// 3. AYARLAR SAYFASI
-// ---------------------------------------------------
-class AyarlarSayfasi extends StatefulWidget {
-  const AyarlarSayfasi({super.key});
-
-  @override
-  State<AyarlarSayfasi> createState() => _AyarlarSayfasiState();
-}
-
-class _AyarlarSayfasiState extends State<AyarlarSayfasi> {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
-      appBar: AppBar(
-        title: const Text("Ayarlar", style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black87),
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(24),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start, // Üstten hizala
         children: [
-          _ayarSatiri(Icons.notifications_none, "Bildirimler", true),
-          _ayarSatiri(Icons.dark_mode_outlined, "Karanlık Mod", false),
-          _ayarSatiri(Icons.language, "Dil Seçimi (Türkçe)", null),
-          const Divider(height: 40),
-          _ayarSatiri(Icons.help_outline, "Yardım Merkezi", null),
-          _ayarSatiri(Icons.info_outline, "Uygulama Hakkında", null),
+          // Sol İkon Kutusu
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(color: const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(12)),
+            child: const Icon(Icons.sports_soccer, color: Color(0xFF16A34A), size: 28),
+          ),
+          const SizedBox(width: 16),
+          
+          // Orta Bilgiler (Saha Adı, Tesis Adı, Tarih)
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(pitchName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF111827))),
+                const SizedBox(height: 2),
+                Text(facilityName, style: const TextStyle(color: Color(0xFF6B7280), fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Icon(Icons.calendar_month_outlined, size: 14, color: Color(0xFF9CA3AF)),
+                    const SizedBox(width: 4),
+                    Text("$formatliTarih | $saatString", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF374151))),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          
+          // Sağ Kısım (Fiyat ve Durum)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text("${priceValue.toInt()} ₺", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF16A34A))),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: durumKutuRengi,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  durumMetni,
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: durumYaziRengi),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
   }
 
-  Widget _ayarSatiri(IconData ikon, String baslik, bool? switchDegeri) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(ikon, color: const Color(0xFF4B5563)),
-      title: Text(baslik, style: const TextStyle(fontWeight: FontWeight.w500)),
-      trailing: switchDegeri != null 
-        ? Switch(value: switchDegeri, onChanged: (v){}, activeColor: const Color(0xFF16A34A))
-        : const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+  Widget _bosEkranGoster() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.sports_soccer_outlined, size: 80, color: Colors.grey),
+          const SizedBox(height: 16),
+          const Text("Henüz bir maçın yok!", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF374151))),
+          const SizedBox(height: 8),
+          const Text("Hemen bir saha bul ve maçını ayarla!", style: TextStyle(color: Color(0xFF6B7280))),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF16A34A),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text("Saha Ara", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+          ),
+        ],
+      ),
     );
   }
+}
+
+class AyarlarSayfasi extends StatelessWidget {
+  const AyarlarSayfasi({super.key});
+  @override
+  Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: const Text("Ayarlar")));
+}
+
+class ProfilDuzenleSayfasi extends StatelessWidget {
+  const ProfilDuzenleSayfasi({super.key});
+  @override
+  Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: const Text("Profili Düzenle")));
 }

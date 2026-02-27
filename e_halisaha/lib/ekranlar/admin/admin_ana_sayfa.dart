@@ -341,10 +341,12 @@ class _MenuButonu extends StatelessWidget {
           children: [
             Icon(ikon, color: renk),
             const SizedBox(width: 16),
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(baslik, style: const TextStyle(fontWeight: FontWeight.bold)),
-              Text(altBaslik, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            ]),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(baslik, style: const TextStyle(fontWeight: FontWeight.bold)),
+                Text(altBaslik, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              ]),
+            ),
           ],
         ),
       ),
