@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../modeller/saha_modeli.dart';
-import '../../modeller/oyuncu_modeli.dart';
-import '../../cekirdek/servisler/api_servisi.dart'; // YENİ SERVİS
-// import '../../cekirdek/servisler/kimlik_servisi.dart'; // Gerekirse aç
-import '../../ekranlar/odeme/odeme_ekrani.dart';
-import 'oyuncu_secim_ekrani.dart';
+import '../../cekirdek/servisler/api_servisi.dart';
+import '../../cekirdek/servisler/kimlik_servisi.dart';
 
 class SahaDetayEkrani extends StatefulWidget {
   final SahaModeli saha;
@@ -16,336 +13,332 @@ class SahaDetayEkrani extends StatefulWidget {
 
 class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
   final ApiServisi _apiServisi = ApiServisi();
-  
   DateTime _seciliTarih = DateTime.now();
-  int? _seciliSaatIndex;
-  List<int> _doluSaatler = []; // API'den gelen dolu saatler (Örn: [19, 20])
-  bool _yukleniyor = true;
-
-  final List<String> _saatListesi = ["18:00", "19:00", "20:00", "21:00", "22:00", "23:00"];
-  List<OyuncuModeli> _eklenenOyuncular = [];
-
-  // Yetki Kontrolü (Şimdilik basit)
-  bool get yetkiliMi => false; // Admin testi yapacaksan burayı true yap
+  int? _seciliSaat;
+  List<int> _doluSaatler = [];
+  bool _saatlerYukleniyor = true;
 
   @override
   void initState() {
     super.initState();
-    _dolulukDurumunuGuncelle();
+    _musaitlikKontrolEt();
   }
 
-  // API'den Bu Sahanın Dolu Saatlerini Çek
-  void _dolulukDurumunuGuncelle() async {
-    setState(() => _yukleniyor = true);
-    
-    // Saha ID string geliyor ama API int istiyor, çeviriyoruz
-    int sahaId = int.tryParse(widget.saha.id) ?? 0;
-    
-    // Servisten saatleri al
-    List<int> gelenDoluSaatler = await _apiServisi.doluSaatleriGetir(sahaId, _seciliTarih);
-
-    if (mounted) {
-      setState(() {
-        _doluSaatler = gelenDoluSaatler;
-        _yukleniyor = false;
-        _seciliSaatIndex = null; // Listeyi yenileyince seçimi kaldır
-      });
+  Future<void> _musaitlikKontrolEt() async {
+    if (!mounted) return;
+    setState(() => _saatlerYukleniyor = true);
+    try {
+      final dolu = await _apiServisi.doluSaatleriGetir(int.parse(widget.saha.id), _seciliTarih);
+      if (mounted) {
+        setState(() {
+          _doluSaatler = dolu;
+          _saatlerYukleniyor = false;
+          _seciliSaat = null; 
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _saatlerYukleniyor = false);
     }
-  }
-
-  double _oyuncuUcretiToplami() {
-    double toplam = 0;
-    for (var oyuncu in _eklenenOyuncular) {
-      toplam += oyuncu.ucret;
-    }
-    return toplam;
-  }
-
-  // --- YÖNETİCİ İÇİN MANUEL EKLEME ---
-  void _manuelEkleDialog(String saatStr) {
-    TextEditingController notController = TextEditingController();
-    int saatInt = int.parse(saatStr.split(":")[0]); // "19:00" -> 19
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text("$saatStr Rezervasyonu"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text("Bu saati telefon/elden manuel kapatıyorsunuz."),
-            const SizedBox(height: 15),
-            TextField(
-              controller: notController,
-              decoration: const InputDecoration(
-                labelText: "Müşteri Adı / Not",
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.note_alt_outlined),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("İptal")),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF22C55E), foregroundColor: Colors.white),
-            onPressed: () async {
-              Navigator.pop(ctx); // Dialogu kapat
-              
-              // API'ye Kayıt At
-              int sahaId = int.tryParse(widget.saha.id) ?? 0;
-              bool basarili = await _apiServisi.rezervasyonYap(
-                sahaId, 
-                1, // Admin User ID (Şimdilik 1 varsayıyoruz)
-                _seciliTarih, 
-                saatInt, 
-                notController.text
-              );
-
-              if (basarili) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Saat Kapatıldı! ✅"), backgroundColor: Colors.green));
-                _dolulukDurumunuGuncelle(); // Listeyi yenile
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Hata oluştu!"), backgroundColor: Colors.red));
-              }
-            },
-            child: const Text("Kapat (Rezervle)"),
-          )
-        ],
-      ),
-    );
-  }
-
-  void _oyuncuSecimEkraniniAc() async {
-    final sonuc = await Navigator.push(context, MaterialPageRoute(builder: (context) => OyuncuSecimEkrani(suankiSecimler: _eklenenOyuncular)));
-    if (sonuc != null && sonuc is List<OyuncuModeli>) {
-      setState(() => _eklenenOyuncular = sonuc);
-    }
-  }
-
-  void _odemeEkraninaGit() {
-    if (_seciliSaatIndex == null) return;
-    String secilenSaat = _saatListesi[_seciliSaatIndex!];
-    
-    // Ödeme ekranına git
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => OdemeEkrani(
-          saha: widget.saha,
-          tarih: _seciliTarih,
-          saat: secilenSaat,
-          sonTutar: widget.saha.fiyat,
-        ),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    bool isDark = Theme.of(context).brightness == Brightness.dark;
-    Color kartRengi = isDark ? const Color(0xFF1E293B) : Colors.white;
-    Color yaziRengi = isDark ? Colors.white : Colors.black;
-    Color altYaziRengi = isDark ? Colors.grey[400]! : Colors.grey;
-
-    double oyuncuParasi = _oyuncuUcretiToplami();
-
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: Colors.white,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 200, pinned: true, backgroundColor: const Color(0xFF22C55E),
+            expandedHeight: 300,
+            pinned: true,
+            backgroundColor: const Color(0xFF16A34A),
             flexibleSpace: FlexibleSpaceBar(
-              background: Image.asset(widget.saha.resimYolu, fit: BoxFit.cover)
-            ),
-            leading: Container(
-              margin: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: Colors.black.withOpacity(0.5), shape: BoxShape.circle),
-              child: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.white), onPressed: () => Navigator.pop(context)),
+              background: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Image.network(
+                    widget.saha.resimYolu,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      color: Colors.grey[200],
+                      child: const Icon(Icons.sports_soccer, size: 80, color: Colors.grey),
+                    ),
+                  ),
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter, 
+                        end: Alignment.bottomCenter, 
+                        colors: [Colors.black.withOpacity(0.4), Colors.transparent]
+                      )
+                    )
+                  ),
+                ],
+              ),
             ),
           ),
-
           SliverToBoxAdapter(
-            child: Container(
-              decoration: BoxDecoration(color: kartRengi, borderRadius: const BorderRadius.vertical(top: Radius.circular(30))),
+            child: Padding(
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(widget.saha.isim, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: yaziRengi)),
-                  Text("📍 ${widget.saha.tamKonum}", style: TextStyle(color: altYaziRengi)),
-                  const SizedBox(height: 24),
-
-                  // TARİH SEÇİCİ (BASİT)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text("Tarih: ${_seciliTarih.toString().substring(0, 10)}", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: yaziRengi)),
-                      TextButton.icon(
-                        onPressed: () async {
-                           DateTime? yeniTarih = await showDatePicker(
-                             context: context, 
-                             initialDate: _seciliTarih, 
-                             firstDate: DateTime.now(), 
-                             lastDate: DateTime.now().add(const Duration(days: 30))
-                           );
-                           if (yeniTarih != null) {
-                             setState(() => _seciliTarih = yeniTarih);
-                             _dolulukDurumunuGuncelle(); // Tarih değişince API'ye tekrar sor
-                           }
-                        }, 
-                        icon: const Icon(Icons.calendar_month), 
-                        label: const Text("Değiştir")
-                      )
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  
-                  // SAAT SEÇİMİ
-                  _yukleniyor 
-                    ? const Center(child: CircularProgressIndicator())
-                    : Wrap(
-                        spacing: 10, runSpacing: 10,
-                        children: List.generate(_saatListesi.length, (index) {
-                          String saatStr = _saatListesi[index];
-                          int saatInt = int.parse(saatStr.split(":")[0]); // "19:00" -> 19
-                          
-                          // API'den gelen listede bu saat var mı?
-                          bool dolu = _doluSaatler.contains(saatInt);
-                          bool secili = _seciliSaatIndex == index;
-
-                          Color kutuRengi = dolu 
-                              ? Colors.grey[300]! 
-                              : (secili ? const Color(0xFF22C55E) : (isDark ? const Color(0xFF334155) : Colors.grey[100]!));
-                          Color yaziRengiKutu = dolu 
-                              ? Colors.grey 
-                              : (secili ? Colors.white : (isDark ? Colors.white : Colors.black));
-
-                          return GestureDetector(
-                            onTap: () {
-                              if (yetkiliMi) {
-                                // Yönetici dolu saate tıklarsa detay/iptal açabilir (İleride)
-                                if (!dolu) _manuelEkleDialog(saatStr);
-                              } else {
-                                // Normal kullanıcı sadece boş saate tıklayabilir
-                                if (!dolu) setState(() => _seciliSaatIndex = index);
-                              }
-                            },
-                            child: Container(
-                              width: 100,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              decoration: BoxDecoration(
-                                color: kutuRengi,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(color: secili ? const Color(0xFF22C55E) : Colors.transparent, width: 2)
-                              ),
-                              child: Column(
-                                children: [
-                                  Text(saatStr, style: TextStyle(color: yaziRengiKutu, fontWeight: FontWeight.bold, fontSize: 16)),
-                                  if (dolu) 
-                                    const Padding(
-                                      padding: EdgeInsets.only(top: 4),
-                                      child: Text("DOLU", style: TextStyle(fontSize: 10, color: Colors.red, fontWeight: FontWeight.bold)),
-                                    ),
-                                ],
-                              ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(widget.saha.isim, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                const Icon(Icons.location_on, size: 16, color: Color(0xFF16A34A)),
+                                const SizedBox(width: 4),
+                                Text(widget.saha.ilce, style: const TextStyle(color: Colors.grey)),
+                              ],
                             ),
-                          );
-                        }),
+                          ],
+                        ),
                       ),
-
-                  const SizedBox(height: 30),
-                  Divider(color: isDark ? Colors.grey[700] : Colors.grey[300]),
-                  
-                  const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(color: const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(12)),
+                        child: Text("${widget.saha.fiyat.toInt()} ₺", style: const TextStyle(color: Color(0xFF16A34A), fontWeight: FontWeight.bold, fontSize: 18)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
+                  const Text("Özellikler", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  _ozelliklerListesi(),
+                  const SizedBox(height: 32),
+                  const Text("Tarih Seçin", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  _tarihSecici(),
+                  const SizedBox(height: 32),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("Eksik Oyuncu Tamamla", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: yaziRengi)),
-                          Text("Topluluktan oyuncu davet et", style: TextStyle(color: altYaziRengi, fontSize: 12)),
-                        ],
-                      ),
-                      ElevatedButton.icon(
-                        onPressed: _oyuncuSecimEkraniniAc,
-                        style: ElevatedButton.styleFrom(backgroundColor: isDark ? const Color(0xFF334155) : Colors.black, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)),
-                        icon: const Icon(Icons.group_add, color: Colors.white, size: 18),
-                        label: const Text("Oyuncu Bul", style: TextStyle(color: Colors.white)),
-                      )
+                      const Text("Müsait Saatler", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      if (_saatlerYukleniyor) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
                     ],
                   ),
-                  
-                  if (_eklenenOyuncular.isNotEmpty)
-                    Column(
-                      children: _eklenenOyuncular.map((oyuncu) {
-                        return Container(
-                          margin: const EdgeInsets.only(top: 10),
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(color: isDark ? const Color(0xFF334155) : Colors.white, borderRadius: BorderRadius.circular(12)),
-                          child: Row(
-                            children: [
-                              CircleAvatar(backgroundImage: NetworkImage(oyuncu.resimUrl), radius: 20),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(oyuncu.isim, style: TextStyle(fontWeight: FontWeight.bold, color: yaziRengi)),
-                              ),
-                              Text("+${oyuncu.ucret.toStringAsFixed(0)}₺", style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF22C55E))),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    
-                  const SizedBox(height: 80),
+                  const SizedBox(height: 12),
+                  _saatSecici(),
+                  const SizedBox(height: 100),
                 ],
               ),
             ),
           ),
         ],
       ),
+      bottomSheet: _rezervasyonButonu(),
+    );
+  }
 
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(color: kartRengi, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20)]),
+  Widget _ozelliklerListesi() {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: widget.saha.ozellikler.map((ozellik) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(border: Border.all(color: Colors.grey[200]!), borderRadius: BorderRadius.circular(8)),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+            const Icon(Icons.check_circle_outline, size: 14, color: Color(0xFF16A34A)),
+            const SizedBox(width: 6),
+            Text(ozellik, style: const TextStyle(fontSize: 13)),
+          ],
+        ),
+      )).toList(),
+    );
+  }
+
+  Widget _tarihSecici() {
+    return SizedBox(
+      height: 90,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: 7,
+        itemBuilder: (context, index) {
+          DateTime gun = DateTime.now().add(Duration(days: index));
+          bool seciliMi = gun.day == _seciliTarih.day && gun.month == _seciliTarih.month;
+          return GestureDetector(
+            onTap: () {
+              setState(() => _seciliTarih = gun);
+              _musaitlikKontrolEt();
+            },
+            child: Container(
+              width: 70,
+              margin: const EdgeInsets.only(right: 12),
+              decoration: BoxDecoration(
+                color: seciliMi ? const Color(0xFF16A34A) : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: seciliMi ? const Color(0xFF16A34A) : Colors.grey[200]!),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"][gun.weekday - 1], style: TextStyle(color: seciliMi ? Colors.white70 : Colors.grey)),
+                  const SizedBox(height: 4),
+                  Text(gun.day.toString(), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: seciliMi ? Colors.white : Colors.black87)),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _saatSecici() {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 4, 
+        childAspectRatio: 1.8,
+        crossAxisSpacing: 10, 
+        mainAxisSpacing: 10
+      ),
+      itemCount: 15,
+      itemBuilder: (context, index) {
+        int saat = index + 8;
+        bool dolu = _doluSaatler.contains(saat);
+        bool secili = _seciliSaat == saat;
+
+        return GestureDetector(
+          onTap: dolu ? null : () => setState(() => _seciliSaat = saat),
+          child: Container(
+            decoration: BoxDecoration(
+              color: dolu ? const Color(0xFFFEF2F2) : (secili ? const Color(0xFF16A34A) : Colors.white),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: dolu ? Colors.red.withOpacity(0.3) : (secili ? const Color(0xFF16A34A) : Colors.grey[200]!),
+                width: secili ? 2 : 1,
+              ),
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text("Ödenecek Tutar", style: TextStyle(color: altYaziRengi, fontSize: 12)),
                 Text(
-                  "${widget.saha.fiyat.toStringAsFixed(0)}₺",
-                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF22C55E)),
+                  "$saat:00",
+                  style: TextStyle(
+                    color: dolu ? Colors.grey[600] : (secili ? Colors.white : Colors.black87),
+                    fontWeight: secili ? FontWeight.bold : FontWeight.normal,
+                    fontSize: 14,
+                  ),
                 ),
-                if (oyuncuParasi > 0)
-                  Text(
-                    "+ ${oyuncuParasi.toStringAsFixed(0)}₺ Oyuncular (Elden)",
-                    style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold),
+                if (dolu)
+                  const Text(
+                    "DOLU",
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
               ],
             ),
-            const SizedBox(width: 20),
-            Expanded(
-              child: SizedBox(
-                height: 55,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _seciliSaatIndex != null ? const Color(0xFF22C55E) : Colors.grey,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
-                  onPressed: _seciliSaatIndex != null ? _odemeEkraninaGit : null,
-                  child: const Text("Devam Et", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _rezervasyonButonu() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(color: Colors.white, boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -4))]),
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF16A34A),
+          foregroundColor: Colors.white,
+          minimumSize: const Size(double.infinity, 56),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          elevation: 0,
+        ),
+        onPressed: (_seciliSaat == null) ? null : _rezervasyonOnayiniGoster,
+        child: Text(_seciliSaat == null ? "Saat Seçin" : "Rezervasyonu Tamamla", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+      ),
+    );
+  }
+
+  void _rezervasyonOnayiniGoster() async {
+    final user = await KimlikServisi.kullaniciGetir();
+    if (!mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("Rezervasyon Özeti", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            _ozetSatiri("Saha", widget.saha.isim),
+            _ozetSatiri("Tarih", "${_seciliTarih.day}/${_seciliTarih.month}/${_seciliTarih.year}"),
+            _ozetSatiri("Saat", "$_seciliSaat:00"),
+            _ozetSatiri("Toplam Ücret", "${widget.saha.fiyat.toInt()} ₺"),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF16A34A), 
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
+              onPressed: () async {
+                Navigator.pop(context);
+
+                // GÜÇLENDİRİLEN ID KONTROLÜ
+                int gonderilecekId = user?['userId'] ?? user?['id'] ?? 0;
+
+                bool basarili = await _apiServisi.rezervasyonYap(
+                  int.parse(widget.saha.id),
+                  gonderilecekId, 
+                  _seciliTarih, 
+                  _seciliSaat!, 
+                  ""
+                );
+                
+                if (basarili) {
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text("✅ Rezervasyon Başarılı!"), 
+                      backgroundColor: Colors.green,
+                      behavior: SnackBarBehavior.floating,
+                    )
+                  );
+                  navigator.pop(); 
+                } else {
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text("❌ Hata oluştu, tekrar deneyin."), 
+                      backgroundColor: Colors.red,
+                      behavior: SnackBarBehavior.floating,
+                    )
+                  );
+                }
+              },
+              child: const Text("ONAYLIYORUM", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _ozetSatiri(String baslik, String deger) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(baslik, style: const TextStyle(color: Colors.grey)), Text(deger, style: const TextStyle(fontWeight: FontWeight.bold))]),
     );
   }
 }

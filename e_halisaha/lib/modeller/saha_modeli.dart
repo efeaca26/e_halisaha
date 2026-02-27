@@ -9,6 +9,7 @@ class SahaModeli {
   final String resimYolu;
   final List<String> ozellikler;
   final String isletmeSahibiEmail;
+  final String? ownerId;
 
   SahaModeli({
     required this.id,
@@ -21,20 +22,22 @@ class SahaModeli {
     required this.resimYolu,
     required this.ozellikler,
     required this.isletmeSahibiEmail,
+    this.ownerId,
   });
 
   factory SahaModeli.fromMap(Map<String, dynamic> map) {
-  return SahaModeli(
-    id: map['id'].toString(),
-    isim: map['name'] ?? "İsimsiz Saha",
-    fiyat: double.tryParse(map['price'].toString()) ?? 0.0,
-    kapora: double.tryParse(map['deposit']?.toString() ?? "0.0") ?? 0.0,
-    ilce: (map['address'] as String?)?.split(',').last.trim() ?? "Merkez",
-    tamKonum: map['address'] ?? "Konum belirtilmedi",
-    puan: 4.5,
-    resimYolu: map['image_url'] ?? "assets/resimler/saha1.png",
-    ozellikler: ["Otopark", "Kantin", "Soyunma Odası"],
-    isletmeSahibiEmail: map['owner_email'] ?? "",
-  );
-}
+    return SahaModeli(
+      id: map['id'].toString(),
+      isim: map['isim'] ?? "İsimsiz Saha",
+      fiyat: map['fiyat'] ?? 0.0,
+      kapora: map['kapora'] ?? 0.0,
+      ilce: map['ilce'] ?? "Merkez",
+      tamKonum: map['tamKonum'] ?? "Konum belirtilmedi",
+      puan: map['puan'] ?? 4.5,
+      resimYolu: map['resimYolu'] ?? "assets/resimler/saha1.png",
+      ozellikler: List<String>.from(map['ozellikler'] ?? []),
+      isletmeSahibiEmail: map['isletmeSahibiEmail'] ?? "",
+      ownerId: map['ownerId']?.toString(),
+    );
+  }
 }

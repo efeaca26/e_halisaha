@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../cekirdek/servisler/api_servisi.dart';
 import '../../cekirdek/servisler/kimlik_servisi.dart';
 import '../giris/giris_ekrani.dart';
+import 'kullanici_yonetimi_ekrani.dart';
 
 class AdminAnaSayfa extends StatefulWidget {
   const AdminAnaSayfa({super.key});
@@ -13,117 +14,230 @@ class AdminAnaSayfa extends StatefulWidget {
 class _AdminAnaSayfaState extends State<AdminAnaSayfa> {
   final ApiServisi _apiServisi = ApiServisi();
   Key _refreshKey = UniqueKey();
+  
+  int _toplamSaha = 0;
+  int _toplamKullanici = 0;
+  bool _sayaclarYukleniyor = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _istatistikleriYukle();
+  }
+
+  void _istatistikleriYukle() async {
+    if (!mounted) return;
+    setState(() => _sayaclarYukleniyor = true);
+    try {
+      var sahalar = await _apiServisi.tumSahalariGetir();
+      var kullanicilar = await _apiServisi.tumKullanicilariGetir();
+      if (mounted) {
+        setState(() {
+          _toplamSaha = sahalar.length;
+          _toplamKullanici = kullanicilar.length;
+          _sayaclarYukleniyor = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _sayaclarYukleniyor = false);
+    }
+  }
 
   void _sayfayiYenile() {
     setState(() {
       _refreshKey = UniqueKey();
     });
+    _istatistikleriYukle();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       key: _refreshKey,
+      backgroundColor: const Color(0xFFF9FAFB),
       appBar: AppBar(
-        title: const Text("🛡️ ADMİN PANELİ", 
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.red[800],
+        title: const Text("Yönetim Paneli", style: TextStyle(color: Color(0xFF111827), fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Color(0xFF111827)),
+        centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
+            icon: const Icon(Icons.refresh, color: Color(0xFF6B7280)),
             onPressed: _sayfayiYenile,
           ),
           IconButton(
-            icon: const Icon(Icons.exit_to_app, color: Colors.white),
-            onPressed: () {
-              KimlikServisi.cikisYap();
-              Navigator.pushAndRemoveUntil(
+            icon: const Icon(Icons.logout, color: Colors.redAccent),
+            onPressed: () async {
+              await KimlikServisi.cikisYap();
+              if (context.mounted) {
+                Navigator.pushAndRemoveUntil(
                   context, 
                   MaterialPageRoute(builder: (_) => const GirisEkrani()), 
-                  (route) => false);
+                  (route) => false
+                );
+              }
             },
           )
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const _OzetKarti(
-              baslik: "Yönetim Merkezi", 
-              aciklama: "Tam yetkilisin.", 
-              ikon: Icons.security, 
-              renk: Colors.blueGrey),
-          const SizedBox(height: 20),
-          
-          // ONAY BEKLEYENLER KISMI
-          _onayBekleyenlerListesi(),
-
-          const _Baslik(text: "👤 Kullanıcı İşlemleri"),
-          _kullaniciListesiKart(),
-          
-          const SizedBox(height: 20),
-          const _Baslik(text: "🏟️ Saha Listesi (Canlı)"),
-          _sahaListesiKart(),
-        ],
+      body: RefreshIndicator(
+        onRefresh: () async => _sayfayiYenile(),
+        color: const Color(0xFFEF4444),
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _IstatistikKarti(
+                    baslik: "Toplam Saha",
+                    deger: _sayaclarYukleniyor ? "..." : _toplamSaha.toString(),
+                    ikon: Icons.stadium,
+                    renk: const Color(0xFF10B981),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _IstatistikKarti(
+                    baslik: "Kullanıcılar",
+                    deger: _sayaclarYukleniyor ? "..." : _toplamKullanici.toString(),
+                    ikon: Icons.people_alt,
+                    renk: const Color(0xFF3B82F6),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 32),
+            _onayBekleyenlerListesi(),
+            const SizedBox(height: 24),
+            const Text("Hızlı Erişim", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF111827))),
+            const SizedBox(height: 16),
+            _MenuButonu(
+              ikon: Icons.manage_accounts,
+              baslik: "Kullanıcı ve Rol Yönetimi",
+              altBaslik: "Kullanıcıları sil, düzenle veya admin yap",
+              renk: const Color(0xFF8B5CF6),
+              onTap: () {
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const KullaniciYonetimiEkrani()));
+              },
+            ),
+            const SizedBox(height: 12),
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.list_alt, color: Color(0xFFF59E0B)),
+                      ),
+                      const SizedBox(width: 12),
+                      const Text("Kayıtlı Sahalar (Canlı)", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF111827))),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _sahaListesi(),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  // --- ONAY BEKLEYEN İŞLETMELER ---
   Widget _onayBekleyenlerListesi() {
     return FutureBuilder<List<dynamic>>(
       future: _apiServisi.tumKullanicilariGetir(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const SizedBox();
-        
-        // isApproved == false olanları bul
-        var bekleyenler = snapshot.data!.where((u) => u['isApproved'] == false).toList();
-
+        var bekleyenler = snapshot.data!.where((u) => u['isApproved'] == false && (u['role'] == 'isletme' || u['role'] == 'sahasahibi' || u['role'] == 'SahaSahibi' || u['role'] == 'Admin')).toList();
         if (bekleyenler.isEmpty) return const SizedBox();
 
         return Container(
-          margin: const EdgeInsets.only(bottom: 20),
-          padding: const EdgeInsets.all(10),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.orange[50], 
-            border: Border.all(color: Colors.orange), 
-            borderRadius: BorderRadius.circular(10)
+            color: const Color(0xFFFFFBEB),
+            border: Border.all(color: const Color(0xFFFDE68A)),
+            borderRadius: BorderRadius.circular(16),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text("⚠️ Onay Bekleyen İşletmeler", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
-              const Divider(),
-              ...bekleyenler.map((user) => ListTile(
-                title: Text(user['fullName'] ?? 'İsimsiz'),
-                subtitle: Text("Tel: ${user['phoneNumber']}"),
-                trailing: ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                  onPressed: () async {
-                    // Kullanıcıyı onayla (isApproved: true)
-                    // Rolü koruyarak sadece onayı güncelliyoruz
-                    bool sonuc = await _apiServisi.kullaniciBilgileriniGuncelle(
-                      user['userId'] ?? user['id'], 
-                      {
-                        "role": user['role'], 
-                        "isApproved": true,
-                        // Mevcut bilgileri korumak için tekrar gönderiyoruz (Backend'e göre değişebilir ama güvenli yol)
-                        "fullName": user['fullName'],
-                        "email": user['email'],
-                        "phoneNumber": user['phoneNumber']
-                      } 
-                    );
-                    
-                    if (!mounted) return;
-
-                    if (sonuc) {
-                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("İşletme Onaylandı!")));
-                       _sayfayiYenile();
-                    } else {
-                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Hata oluştu!")));
-                    }
-                  }, 
-                  child: const Text("ONAYLA", style: TextStyle(color: Colors.white))
+              const Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, color: Color(0xFFD97706)),
+                  SizedBox(width: 8),
+                  Text("Onay Bekleyen İşletmeler", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF92400E), fontSize: 16)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ...bekleyenler.map((user) => Container(
+                margin: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.02), blurRadius: 4, offset: const Offset(0, 2))],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(user['fullName'] ?? 'İsimsiz', style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF111827))),
+                          Text(user['phoneNumber'] ?? 'Tel Yok', style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+                        ],
+                      ),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF10B981),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                      onPressed: () async {
+                        bool sonuc = await _apiServisi.kullaniciBilgileriniGuncelle(
+                          user['userId'] ?? user['id'], 
+                          {
+                            "role": user['role'], 
+                            "isApproved": true,
+                            "fullName": user['fullName'],
+                            "email": user['email'],
+                            "phoneNumber": user['phoneNumber']
+                          } 
+                        );
+                        if (!mounted) return;
+                        if (sonuc) {
+                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Onaylandı!"), backgroundColor: Colors.green));
+                           _sayfayiYenile();
+                        }
+                      }, 
+                      child: const Text("ONAYLA", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))
+                    ),
+                  ],
                 ),
               )).toList()
             ],
@@ -133,150 +247,30 @@ class _AdminAnaSayfaState extends State<AdminAnaSayfa> {
     );
   }
 
-  Widget _kullaniciListesiKart() {
-    return Container(
-      height: 300,
-      decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300), 
-          borderRadius: BorderRadius.circular(12)),
-      child: FutureBuilder<List<dynamic>>(
-        future: _apiServisi.tumKullanicilariGetir(),
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
-          if (snapshot.data!.isEmpty) return const Center(child: Text("Kullanıcı yok."));
-
-          return ListView.separated(
-            itemCount: snapshot.data!.length,
-            separatorBuilder: (ctx, i) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              var user = snapshot.data![index];
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: _rolRengi(user['role']),
-                  child: Text(user['fullName'] != null ? user['fullName'][0].toUpperCase() : "?", 
-                      style: const TextStyle(color: Colors.white)),
-                ),
-                title: Text(user['fullName'] ?? 'İsimsiz', 
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text("${user['email']}\n${user['role']?.toString().toUpperCase()}"),
-                isThreeLine: true,
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit, color: Colors.blue),
-                      onPressed: () => _kullaniciDuzenleDialog(user),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () => _silmeOnayi(user),
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _sahaListesiKart() {
-    return Container(
-      height: 250,
-      decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.shade300), 
-          borderRadius: BorderRadius.circular(12)),
-      child: FutureBuilder<List<dynamic>>(
-        future: _apiServisi.tumSahalariGetir(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-          if (!snapshot.hasData || snapshot.data!.isEmpty) return const Center(child: Text("Henüz kayıtlı saha yok."));
-
-          return ListView.builder(
-            itemCount: snapshot.data!.length,
-            itemBuilder: (context, index) {
-              var saha = snapshot.data![index];
-              return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                color: Colors.green[50],
-                child: ListTile(
-                  leading: Icon(Icons.stadium, color: Colors.green[800], size: 30),
-                  title: Text(saha['name'] ?? 'Saha Adı Yok', 
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
-                  subtitle: Text("Fiyat: ${saha['pricePerHour']} TL / Saat\nKonum: ${saha['location'] ?? 'Belirtilmemiş'}"),
-                  isThreeLine: true,
-                  trailing: IconButton(
-                    icon: const Icon(Icons.delete_forever, color: Colors.red),
-                    onPressed: () => _sahaSilmeOnayi(saha),
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-
-  void _kullaniciDuzenleDialog(dynamic user) {
-    final isimController = TextEditingController(text: user['fullName']);
-    final emailController = TextEditingController(text: user['email']);
-    final telController = TextEditingController(text: user['phoneNumber']);
-    String secilenRol = user['role'] ?? 'oyuncu';
-
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text("Kullanıcıyı Düzenle"),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(controller: isimController, decoration: const InputDecoration(labelText: "Ad Soyad", icon: Icon(Icons.person))),
-                TextField(controller: emailController, decoration: const InputDecoration(labelText: "E-Posta", icon: Icon(Icons.email))),
-                TextField(controller: telController, decoration: const InputDecoration(labelText: "Telefon", icon: Icon(Icons.phone))),
-                const SizedBox(height: 20),
-                DropdownButtonFormField<String>(
-                  value: secilenRol, 
-                  decoration: const InputDecoration(labelText: "Rolü Seç", border: OutlineInputBorder()),
-                  items: ['oyuncu', 'sahasahibi', 'admin', 'isletme'].map((rol) {
-                    return DropdownMenuItem(value: rol, child: Text(rol.toUpperCase()));
-                  }).toList(),
-                  onChanged: (val) => secilenRol = val!,
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("İptal")),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
-              onPressed: () async {
-                Map<String, dynamic> guncelVeri = {
-                  "fullName": isimController.text,
-                  "email": emailController.text,
-                  "phoneNumber": telController.text,
-                  "role": secilenRol,
-                  "isApproved": user['isApproved'] // Mevcut onay durumunu koru
-                };
-
-                Navigator.pop(ctx);
-                bool sonuc = await _apiServisi.kullaniciBilgileriniGuncelle(user['userId'] ?? user['id'], guncelVeri);
-                
-                if (!mounted) return;
-                
-                if (sonuc) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Kullanıcı güncellendi! ✅")));
-                  _sayfayiYenile();
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Güncelleme başarısız! ❌"), backgroundColor: Colors.red));
-                }
-              },
-              child: const Text("KAYDET", style: TextStyle(color: Colors.white)),
-            )
-          ],
+  Widget _sahaListesi() {
+    return FutureBuilder<List<dynamic>>(
+      future: _apiServisi.tumSahalariGetir(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData || snapshot.data!.isEmpty) return const Text("Saha yok.");
+        var sahalar = snapshot.data!;
+        return ListView.separated(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: sahalar.length > 5 ? 5 : sahalar.length,
+          separatorBuilder: (context, index) => const Divider(),
+          itemBuilder: (context, index) {
+            var saha = sahalar[index];
+            return ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(saha.isim, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+              subtitle: Text("${saha.fiyat.toInt()} ₺", style: const TextStyle(fontSize: 12)),
+              trailing: IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                onPressed: () => _sahaSilmeOnayi(saha),
+              ),
+            );
+          },
         );
       },
     );
@@ -287,102 +281,72 @@ class _AdminAnaSayfaState extends State<AdminAnaSayfa> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("Sahayı Sil"),
-        content: Text("${saha['name']} veritabanından tamamen silinecek. Emin misin?"),
+        content: const Text("Bu işlem geri alınamaz."),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("İptal")),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
               Navigator.pop(ctx);
-              bool silindi = await _apiServisi.sahaSil(saha['pitchId'] ?? saha['id']);
-              
-              if (!mounted) return;
-
-              if (silindi) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Saha silindi!")));
-                _sayfayiYenile();
-              }
+              bool silindi = await _apiServisi.sahaSil(int.parse(saha.id));
+              if (mounted && silindi) _sayfayiYenile();
             }, 
-            child: const Text("SİL", style: TextStyle(color: Colors.white))
+            child: const Text("SİL"),
           ),
         ],
       )
     );
   }
-
-  void _silmeOnayi(dynamic user) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Silmek İstiyor musun?"),
-        content: Text("${user['fullName']} silinecek. Bu işlem geri alınamaz."),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Vazgeç")),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () async {
-              Navigator.pop(ctx);
-              bool silindi = await _apiServisi.kullaniciSil(user['userId'] ?? user['id']);
-              
-              if (!mounted) return;
-
-              if (silindi) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Kullanıcı silindi.")));
-                _sayfayiYenile();
-              }
-            },
-            child: const Text("SİL", style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      )
-    );
-  }
-
-  Color _rolRengi(String? rol) {
-    switch (rol) {
-      case 'admin': return Colors.red;
-      case 'isletme': 
-      case 'sahasahibi': return Colors.orange;
-      default: return Colors.blue;
-    }
-  }
 }
 
-// Alt sınıflar const kullanımı için ayrı widgetlara bölündü
-class _Baslik extends StatelessWidget {
-  final String text;
-  const _Baslik({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Text(text, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
-    );
-  }
-}
-
-class _OzetKarti extends StatelessWidget {
+class _IstatistikKarti extends StatelessWidget {
   final String baslik;
-  final String aciklama;
+  final String deger;
   final IconData ikon;
   final Color renk;
-
-  const _OzetKarti({
-    required this.baslik,
-    required this.aciklama,
-    required this.ikon,
-    required this.renk,
-  });
-
+  const _IstatistikKarti({required this.baslik, required this.deger, required this.ikon, required this.renk});
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: renk,
-      child: ListTile(
-        leading: Icon(ikon, color: Colors.white, size: 40),
-        title: Text(baslik, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-        subtitle: Text(aciklama, style: const TextStyle(color: Colors.white70)),
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(ikon, color: renk),
+          const SizedBox(height: 12),
+          Text(deger, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          Text(baslik, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+}
+
+class _MenuButonu extends StatelessWidget {
+  final IconData ikon;
+  final String baslik;
+  final String altBaslik;
+  final Color renk;
+  final VoidCallback onTap;
+  const _MenuButonu({required this.ikon, required this.baslik, required this.altBaslik, required this.renk, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+        child: Row(
+          children: [
+            Icon(ikon, color: renk),
+            const SizedBox(width: 16),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(baslik, style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(altBaslik, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            ]),
+          ],
+        ),
       ),
     );
   }

@@ -40,7 +40,10 @@ class ApiServisi {
     try {
       final r = await http.get(Uri.parse('$_baseUrl/users'), headers: await _headers());
       if (r.statusCode == 200) {
-        return jsonDecode(r.body)['data'] ?? [];
+        final Map<String, dynamic> decoded = jsonDecode(r.body);
+        if (decoded.containsKey('data')) {
+          return decoded['data'] ?? [];
+        }
       }
     } catch (e) {
       debugPrint("Kullanıcı Getirme Hatası: $e");
@@ -61,16 +64,26 @@ class ApiServisi {
     }
   }
 
-  Future<bool> bilgileriGuncelle(int id, String ad, String email, String tel, String sifre) async {
-    return await kullaniciBilgileriniGuncelle(id, {
-      "name": ad, 
-      "email": email, 
-      "phone": tel
-    });
+  // Rol güncelleme için özel endpoint (Backend'deki yeni rotamızla uyumlu)
+  Future<bool> kullaniciRoluGuncelle(int id, String rol) async {
+    try {
+      final r = await http.put(
+        Uri.parse('$_baseUrl/users/$id/role'), 
+        headers: await _headers(), 
+        body: jsonEncode({"role": rol}),
+      );
+      return r.statusCode == 200;
+    } catch (e) { 
+      return false; 
+    }
   }
 
-  Future<bool> kullaniciRoluGuncelle(int id, String rol) async {
-    return await kullaniciBilgileriniGuncelle(id, {"role": rol});
+  Future<bool> bilgileriGuncelle(int id, String ad, String email, String tel, String sifre) async {
+    return await kullaniciBilgileriniGuncelle(id, {
+      "fullName": ad, 
+      "email": email, 
+      "phoneNumber": tel
+    });
   }
 
   Future<bool> kullaniciSil(int id) async {
@@ -88,7 +101,8 @@ class ApiServisi {
     try {
       final r = await http.get(Uri.parse('$_baseUrl/users/$id'), headers: await _headers());
       if (r.statusCode == 200) {
-        return jsonDecode(r.body)['data'];
+        final decoded = jsonDecode(r.body);
+        return decoded['data'];
       }
     } catch (e) {
       debugPrint("Kullanıcı Getirme Hatası: $e");
@@ -117,8 +131,7 @@ class ApiServisi {
             "resimYolu": json['image_url'] ?? "assets/resimler/saha1.png",
             "ozellikler": ["Otopark", "Kantin", "Soyunma Odası"],
             "isletmeSahibiEmail": json['owner_email'] ?? "",
-            // İşletme ekranında filtrelemek için backend'den gelen id'yi de tutuyoruz
-            "ownerId": json['owner_id'] ?? json['userId'], 
+            "ownerId": json['owner_id']?.toString() ?? json['userId']?.toString(), 
           });
         }).toList();
       }
@@ -177,14 +190,19 @@ class ApiServisi {
     }
   }
 
-  Future<List<dynamic>> randevularimiGetir(int userId) async {
+  Future<List<dynamic>> randevularimiGetir() async {
     try {
       final r = await http.get(Uri.parse('$_baseUrl/bookings/user'), headers: await _headers());
       if (r.statusCode == 200) {
-        return jsonDecode(r.body)['data'] ?? [];
+        final decoded = jsonDecode(r.body);
+        List<dynamic> data = decoded['data'] ?? [];
+        
+        debugPrint("Gelen ham veri: $data");
+
+        return data;
       }
     } catch (e) { 
-      debugPrint("Randevu Getirme Hatası: $e");
+      debugPrint("ApiServisi Hatası: $e");
     }
     return [];
   }
@@ -193,7 +211,8 @@ class ApiServisi {
     try {
       final r = await http.get(Uri.parse('$_baseUrl/bookings/facility/$id'), headers: await _headers());
       if (r.statusCode == 200) {
-        return jsonDecode(r.body)['data'] ?? [];
+        final decoded = jsonDecode(r.body);
+        return decoded['data'] ?? [];
       }
     } catch (e) { 
       debugPrint("Saha Randevuları Hatası: $e");
@@ -201,7 +220,7 @@ class ApiServisi {
     return [];
   }
 
-  // --- KART İŞLEMLERİ (Ödeme ekranı için - Şimdilik Dummy) ---
+  // --- KART İŞLEMLERİ ---
   Future<List<dynamic>> kartlariGetir(int id) async => [];
   Future<bool> kartSil(int id) async => true;
   Future<bool> kartEkle(int id, String a, String n) async => true;
