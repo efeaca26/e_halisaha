@@ -161,10 +161,11 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
       height: 90,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
-        itemCount: 7,
+        itemCount: 14, // 1 hafta yerine 2 haftalık takvim gösterelim
         itemBuilder: (context, index) {
           DateTime gun = DateTime.now().add(Duration(days: index));
-          bool seciliMi = gun.day == _seciliTarih.day && gun.month == _seciliTarih.month;
+          bool seciliMi = gun.day == _seciliTarih.day && gun.month == _seciliTarih.month && gun.year == _seciliTarih.year;
+          
           return GestureDetector(
             onTap: () {
               setState(() => _seciliTarih = gun);
@@ -194,6 +195,12 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
   }
 
   Widget _saatSecici() {
+    // ŞU ANKİ ZAMANI ALALIM
+    final DateTime simdi = DateTime.now();
+    final bool bugunMu = _seciliTarih.day == simdi.day && 
+                         _seciliTarih.month == simdi.month && 
+                         _seciliTarih.year == simdi.year;
+
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -203,20 +210,29 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
         crossAxisSpacing: 10, 
         mainAxisSpacing: 10
       ),
-      itemCount: 15,
+      itemCount: 16, // 08:00 - 23:00 arası
       itemBuilder: (context, index) {
         int saat = index + 8;
-        bool dolu = _doluSaatler.contains(saat);
+        
+        // KONTROL 1: Backend'den gelen dolu bilgisi
+        bool backendDolu = _doluSaatler.contains(saat);
+        
+        // KONTROL 2: Geçmiş saat mi? (Bugünse ve saat geçtiyse)
+        bool gecmisSaat = bugunMu && saat <= simdi.hour;
+        
+        // EĞER ikisinden biri true ise bu saat kilitli (dolu) görünmeli
+        bool kilitli = backendDolu || gecmisSaat;
+        
         bool secili = _seciliSaat == saat;
 
         return GestureDetector(
-          onTap: dolu ? null : () => setState(() => _seciliSaat = saat),
+          onTap: kilitli ? null : () => setState(() => _seciliSaat = saat),
           child: Container(
             decoration: BoxDecoration(
-              color: dolu ? const Color(0xFFFEF2F2) : (secili ? const Color(0xFF16A34A) : Colors.white),
+              color: kilitli ? const Color(0xFFF3F4F6) : (secili ? const Color(0xFF16A34A) : Colors.white),
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: dolu ? Colors.red.withOpacity(0.3) : (secili ? const Color(0xFF16A34A) : Colors.grey[200]!),
+                color: kilitli ? Colors.grey[200]! : (secili ? const Color(0xFF16A34A) : Colors.grey[200]!),
                 width: secili ? 2 : 1,
               ),
             ),
@@ -224,19 +240,19 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  "$saat:00",
+                  "${saat.toString().padLeft(2, '0')}:00",
                   style: TextStyle(
-                    color: dolu ? Colors.grey[600] : (secili ? Colors.white : Colors.black87),
+                    color: kilitli ? Colors.grey[400] : (secili ? Colors.white : Colors.black87),
                     fontWeight: secili ? FontWeight.bold : FontWeight.normal,
                     fontSize: 14,
                   ),
                 ),
-                if (dolu)
-                  const Text(
-                    "DOLU",
+                if (kilitli)
+                  Text(
+                    gecmisSaat ? "GEÇTİ" : "DOLU",
                     style: TextStyle(
-                      color: Colors.red,
-                      fontSize: 10,
+                      color: gecmisSaat ? Colors.grey[500] : Colors.red,
+                      fontSize: 9,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -275,6 +291,7 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
 
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (context) => Padding(
         padding: const EdgeInsets.all(24.0),
@@ -285,7 +302,7 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
             const SizedBox(height: 20),
             _ozetSatiri("Saha", widget.saha.isim),
             _ozetSatiri("Tarih", "${_seciliTarih.day}/${_seciliTarih.month}/${_seciliTarih.year}"),
-            _ozetSatiri("Saat", "$_seciliSaat:00"),
+            _ozetSatiri("Saat", "${_seciliSaat?.toString().padLeft(2, '0')}:00"),
             _ozetSatiri("Toplam Ücret", "${widget.saha.fiyat.toInt()} ₺"),
             const SizedBox(height: 24),
             ElevatedButton(
@@ -297,7 +314,6 @@ class _SahaDetayEkraniState extends State<SahaDetayEkrani> {
               onPressed: () async {
                 Navigator.pop(context);
 
-                // GÜÇLENDİRİLEN ID KONTROLÜ
                 int gonderilecekId = user?['userId'] ?? user?['id'] ?? 0;
 
                 bool basarili = await _apiServisi.rezervasyonYap(

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../cekirdek/servisler/kimlik_servisi.dart';
 import '../giris/giris_ekrani.dart';
-import 'profil_alt_sayfalar.dart'; // Randevularım, Ayarlar, Profil Düzenle sayfalarının olduğu dosya
+import 'profil_alt_sayfalar.dart'; 
 import '../isletme/isletme_ana_sayfa.dart';
 import '../admin/admin_ana_sayfa.dart';
 
@@ -28,7 +28,7 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
       if (mounted) {
         setState(() {
           _kullanici = user ?? {
-            'name': 'Misafir Kullanıcı',
+            'name': 'Futbolsever',
             'email': 'Bilgi bulunamadı',
             'role': 'oyuncu'
           };
@@ -48,6 +48,14 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
     }
   }
 
+  // ROLÜ TÜRKÇELEŞTİREN YARDIMCI FONKSİYON
+  String _roluTurkceyeCevir(String? rol) {
+    final r = rol?.toLowerCase() ?? 'oyuncu';
+    if (r == 'admin') return 'ADMIN';
+    if (r == 'isletme' || r == 'sahasahibi' || r == 'owner') return 'İŞLETMECİ';
+    return 'OYUNCU';
+  }
+
   void _cikisYap() async {
     await KimlikServisi.cikisYap();
     if (!mounted) return;
@@ -60,17 +68,25 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
 
   @override
   Widget build(BuildContext context) {
-    String ad = _kullanici?['name'] ?? "Kullanıcı";
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    String ad = _kullanici?['fullName'] ?? _kullanici?['name'] ?? "Futbolsever";
     String email = _kullanici?['email'] ?? "Email yükleniyor...";
-    String rol = _kullanici?['role']?.toString().toLowerCase() ?? "oyuncu";
+    String rolRaw = _kullanici?['role']?.toString().toLowerCase() ?? "oyuncu";
     String basHarf = ad.isNotEmpty ? ad[0].toUpperCase() : "?";
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text("Profilim", style: TextStyle(color: Color(0xFF111827), fontWeight: FontWeight.bold)),
+        title: Text("Profilim", 
+          style: TextStyle(
+            color: isDark ? Colors.white : const Color(0xFF111827), 
+            fontWeight: FontWeight.bold
+          )
+        ),
+        iconTheme: IconThemeData(color: isDark ? Colors.white : Colors.black),
         centerTitle: true,
       ),
       body: _kullanici == null
@@ -80,7 +96,7 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // --- PROFİL ÜST KISMI (AVATAR VE BİLGİLER) ---
+                  // --- PROFİL ÜST KISMI ---
                   Center(
                     child: Column(
                       children: [
@@ -88,7 +104,7 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
                           width: 100,
                           height: 100,
                           decoration: BoxDecoration(
-                            color: const Color(0xFFE8F5E9), // Açık yeşil arka plan
+                            color: isDark ? const Color(0xFF1F2937) : const Color(0xFFE8F5E9),
                             shape: BoxShape.circle,
                             border: Border.all(color: const Color(0xFF16A34A), width: 2),
                           ),
@@ -102,32 +118,38 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
                         const SizedBox(height: 16),
                         Text(
                           ad,
-                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Color(0xFF111827)),
+                          style: TextStyle(
+                            fontSize: 24, 
+                            fontWeight: FontWeight.bold, 
+                            color: isDark ? Colors.white : const Color(0xFF111827)
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           email,
-                          style: const TextStyle(fontSize: 16, color: Color(0xFF6B7280)),
+                          style: TextStyle(fontSize: 16, color: isDark ? Colors.grey[400] : const Color(0xFF6B7280)),
                         ),
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 12),
+                        // --- DİNAMİK ROL ETİKETİ (USER YERİNE BURASI GELDİ) ---
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                           decoration: BoxDecoration(
-                            color: rol == 'admin' 
-                                ? Colors.red.withValues(alpha: 0.1) 
-                                : rol == 'isletme' || rol == 'sahasahibi'
-                                    ? Colors.orange.withValues(alpha: 0.1)
-                                    : const Color(0xFF16A34A).withValues(alpha: 0.1),
+                            color: rolRaw == 'admin' 
+                                ? Colors.red.withValues(alpha: 0.15) 
+                                : (rolRaw == 'isletme' || rolRaw == 'sahasahibi' || rolRaw == 'owner')
+                                    ? Colors.orange.withValues(alpha: 0.15)
+                                    : const Color(0xFF16A34A).withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            rol.toUpperCase(),
+                            _roluTurkceyeCevir(rolRaw),
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 13,
                               fontWeight: FontWeight.bold,
-                              color: rol == 'admin' 
+                              letterSpacing: 0.5,
+                              color: rolRaw == 'admin' 
                                   ? Colors.red 
-                                  : rol == 'isletme' || rol == 'sahasahibi'
+                                  : (rolRaw == 'isletme' || rolRaw == 'sahasahibi' || rolRaw == 'owner')
                                       ? Colors.orange
                                       : const Color(0xFF16A34A),
                             ),
@@ -138,16 +160,16 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
                   ),
                   const SizedBox(height: 32),
 
-                  // --- ROL BAZLI ÖZEL BUTONLAR (Sadece Admin veya İşletme görür) ---
-                  if (rol == 'admin' || rol == 'isletme' || rol == 'sahasahibi') ...[
+                  // --- ROL BAZLI BUTONLAR ---
+                  if (rolRaw == 'admin' || rolRaw == 'isletme' || rolRaw == 'sahasahibi' || rolRaw == 'owner') ...[
                     _ProfilMenusuOgesi(
-                      ikon: rol == 'admin' ? Icons.security : Icons.stadium,
+                      ikon: rolRaw == 'admin' ? Icons.security : Icons.stadium,
                       ikonRengi: Colors.white,
-                      ikonArkaPlan: rol == 'admin' ? Colors.red : Colors.orange,
-                      baslik: rol == 'admin' ? "Admin Paneline Git" : "İşletme Paneline Git",
+                      ikonArkaPlan: rolRaw == 'admin' ? Colors.red : Colors.orange,
+                      baslik: rolRaw == 'admin' ? "Admin Paneline Git" : "İşletme Paneline Git",
                       altBaslik: "Yönetim ekranını açar",
                       onTap: () {
-                        if (rol == 'admin') {
+                        if (rolRaw == 'admin') {
                           Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminAnaSayfa()));
                         } else {
                           Navigator.push(context, MaterialPageRoute(builder: (_) => IsletmeAnaSayfa(kullanici: _kullanici!)));
@@ -160,11 +182,11 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
                   // --- GENEL KULLANICI MENÜSÜ ---
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Theme.of(context).cardColor, 
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.03),
+                          color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.03),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -200,11 +222,11 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
                   // --- ÇIKIŞ YAP BUTONU ---
                   Container(
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Theme.of(context).cardColor,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.03),
+                          color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.03),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -221,8 +243,9 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
                         showDialog(
                           context: context,
                           builder: (ctx) => AlertDialog(
-                            title: const Text("Çıkış Yap"),
-                            content: const Text("Hesabınızdan çıkış yapmak istediğinize emin misiniz?"),
+                            backgroundColor: isDark ? const Color(0xFF1F2937) : Colors.white,
+                            title: Text("Çıkış Yap", style: TextStyle(color: isDark ? Colors.white : Colors.black)),
+                            content: Text("Hesabınızdan çıkış yapmak istediğinize emin misiniz?", style: TextStyle(color: isDark ? Colors.white70 : Colors.black87)),
                             actions: [
                               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("İptal", style: TextStyle(color: Colors.grey))),
                               ElevatedButton(
@@ -247,7 +270,6 @@ class _ProfilEkraniState extends State<ProfilEkrani> {
   }
 }
 
-// Menüdeki her bir satırı (ListTile) temsil eden özel widget
 class _ProfilMenusuOgesi extends StatelessWidget {
   final IconData ikon;
   final String baslik;
@@ -255,7 +277,7 @@ class _ProfilMenusuOgesi extends StatelessWidget {
   final VoidCallback onTap;
   final Color ikonRengi;
   final Color ikonArkaPlan;
-  final Color metinRengi;
+  final Color? metinRengi;
   final bool okuGizle;
 
   const _ProfilMenusuOgesi({
@@ -265,39 +287,51 @@ class _ProfilMenusuOgesi extends StatelessWidget {
     required this.onTap,
     this.ikonRengi = const Color(0xFF16A34A),
     this.ikonArkaPlan = const Color(0xFFE8F5E9),
-    this.metinRengi = const Color(0xFF111827),
+    this.metinRengi,
     this.okuGizle = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
       leading: Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: ikonArkaPlan,
+          color: isDark ? ikonRengi.withOpacity(0.1) : ikonArkaPlan,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Icon(ikon, color: ikonRengi, size: 24),
       ),
       title: Text(
         baslik,
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: metinRengi),
+        style: TextStyle(
+          fontSize: 16, 
+          fontWeight: FontWeight.bold, 
+          color: metinRengi ?? (isDark ? Colors.white : const Color(0xFF111827))
+        ),
       ),
       subtitle: altBaslik != null 
-          ? Text(altBaslik!, style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280))) 
+          ? Text(altBaslik!, style: TextStyle(fontSize: 13, color: isDark ? Colors.grey[400] : const Color(0xFF6B7280))) 
           : null,
-      trailing: okuGizle ? null : const Icon(Icons.arrow_forward_ios, size: 16, color: Color(0xFF9CA3AF)),
+      trailing: okuGizle ? null : Icon(Icons.arrow_forward_ios, size: 16, color: isDark ? Colors.white54 : const Color(0xFF9CA3AF)),
       onTap: onTap,
     );
   }
 }
 
-// Menü öğeleri arasındaki ince gri çizgi
 class _Ayrac extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Divider(height: 1, thickness: 1, color: Colors.grey.withValues(alpha: 0.1), indent: 70, endIndent: 20);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Divider(
+      height: 1, 
+      thickness: 1, 
+      color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.1), 
+      indent: 70, 
+      endIndent: 20
+    );
   }
 }

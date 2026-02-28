@@ -42,7 +42,6 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
       if (mounted) {
         setState(() {
           _kullanici = user;
-          // İsmi fullName'den çekmeye çalışıyoruz, yoksa split yapıyoruz
           _kullaniciAdi = user?['fullName'] ?? user?['name'] ?? "Futbolsever";
           _kullaniciEmail = user?['email'] ?? "";
           _kullaniciRol = user?['role']?.toString().toLowerCase() ?? "oyuncu";
@@ -68,10 +67,12 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: const Color(0xFFF9FAFB),
-      drawer: _hamburgerMenuOlustur(),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      drawer: _yanMenuOlustur(), 
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _verileriYukle,
@@ -91,17 +92,17 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
                             child: Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: Theme.of(context).cardColor,
                                 borderRadius: BorderRadius.circular(14),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.1), 
+                                    color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.1), 
                                     blurRadius: 15, 
                                     offset: const Offset(0, 5)
                                   ),
                                 ],
                               ),
-                              child: const Icon(Icons.menu_rounded, color: Color(0xFF111827), size: 28),
+                              child: Icon(Icons.menu_rounded, color: isDark ? Colors.white : const Color(0xFF111827), size: 28),
                             ),
                           ),
                           const SizedBox(width: 16),
@@ -109,9 +110,9 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text("Merhaba, ${_kullaniciAdi ?? "Futbolsever"} 👋", 
-                                style: const TextStyle(fontSize: 14, color: Color(0xFF4B5563))),
-                              const Text("Maç Başlıyor!", 
-                                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF111827))),
+                                style: TextStyle(fontSize: 14, color: isDark ? Colors.grey[400] : const Color(0xFF4B5563))),
+                              Text("Maç Başlıyor!", 
+                                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : const Color(0xFF111827))),
                             ],
                           ),
                         ],
@@ -120,17 +121,19 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: Theme.of(context).cardColor,
                           borderRadius: BorderRadius.circular(12),
                           boxShadow: [
                             BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 10, offset: const Offset(0, 4)),
                           ],
                         ),
-                        child: const TextField(
+                        child: TextField(
+                          style: TextStyle(color: isDark ? Colors.white : Colors.black),
                           decoration: InputDecoration(
                             hintText: "Saha adı veya konum ara...",
+                            hintStyle: TextStyle(color: isDark ? Colors.grey : const Color(0xFF9CA3AF)),
                             border: InputBorder.none,
-                            icon: Icon(Icons.search, color: Color(0xFF9CA3AF)),
+                            icon: const Icon(Icons.search, color: Color(0xFF9CA3AF)),
                           ),
                         ),
                       ),
@@ -141,7 +144,7 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
               _yukleniyor
                   ? const SliverFillRemaining(child: Center(child: CircularProgressIndicator(color: Color(0xFF16A34A))))
                   : _sahalar.isEmpty
-                      ? const SliverFillRemaining(child: Center(child: Text("Henüz saha bulunamadı.")))
+                      ? SliverFillRemaining(child: Center(child: Text("Henüz saha bulunamadı.", style: TextStyle(color: isDark ? Colors.white : Colors.black))))
                       : SliverPadding(
                           padding: const EdgeInsets.symmetric(horizontal: 24),
                           sliver: SliverList(
@@ -158,11 +161,12 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
     );
   }
 
-  Widget _hamburgerMenuOlustur() {
+  Widget _yanMenuOlustur() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     String basHarf = _kullaniciAdi != null && _kullaniciAdi!.isNotEmpty ? _kullaniciAdi![0].toUpperCase() : "?";
 
     return Drawer(
-      backgroundColor: Colors.white,
+      backgroundColor: isDark ? const Color(0xFF1F2937) : Colors.white,
       child: Column(
         children: [
           Container(
@@ -177,7 +181,7 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
               children: [
                 Container(
                   width: 70, height: 70,
-                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: isDark ? const Color(0xFF111827) : Colors.white, shape: BoxShape.circle),
                   child: Center(child: Text(basHarf, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF16A34A)))),
                 ),
                 const SizedBox(height: 16),
@@ -193,20 +197,24 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
                 const SizedBox(height: 10),
                 _drawerListTile(Icons.person_outline, "Profilim", () {
                   Navigator.pop(context);
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfilEkrani()));
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const ProfilEkrani())).then((_) => _verileriYukle());
                 }),
                 _drawerListTile(Icons.calendar_month_outlined, "Rezervasyonlarım", () {
                   Navigator.pop(context);
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const RandevularimSayfasi()));
                 }),
+                _drawerListTile(Icons.settings_outlined, "Ayarlar", () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const AyarlarSayfasi())).then((_) => _verileriYukle());
+                }),
                 if (_kullaniciRol == 'admin') ...[
-                  const Divider(),
+                  Divider(color: isDark ? Colors.white10 : Colors.grey[200]),
                   _drawerListTile(Icons.security, "Yönetim Paneli", () {
                     Navigator.pop(context);
                     Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminAnaSayfa()));
                   }, ikonRengi: Colors.red),
                 ] else if (_kullaniciRol == 'isletme' || _kullaniciRol == 'sahasahibi') ...[
-                  const Divider(),
+                  Divider(color: isDark ? Colors.white10 : Colors.grey[200]),
                   _drawerListTile(Icons.stadium, "İşletme Paneli", () {
                     Navigator.pop(context);
                     if (_kullanici != null) {
@@ -228,7 +236,31 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
               ),
               icon: const Icon(Icons.logout),
               label: const Text("Çıkış Yap"),
-              onPressed: _cikisYap,
+              onPressed: () {
+                // ÇIKIŞ YAP ONAY PENCERESİ BURAYA EKLENDİ
+                showDialog(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    backgroundColor: isDark ? const Color(0xFF1F2937) : Colors.white,
+                    title: Text("Çıkış Yap", style: TextStyle(color: isDark ? Colors.white : Colors.black)),
+                    content: Text("Hesabınızdan çıkış yapmak istediğinize emin misiniz?", style: TextStyle(color: isDark ? Colors.white70 : Colors.black87)),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(ctx), 
+                        child: const Text("İptal", style: TextStyle(color: Colors.grey))
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                        onPressed: () {
+                          Navigator.pop(ctx); // Pencereyi kapat
+                          _cikisYap(); // Gerçek çıkış fonksiyonunu çağır
+                        },
+                        child: const Text("Çıkış Yap", style: TextStyle(color: Colors.white)),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -237,15 +269,17 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
   }
 
   Widget _drawerListTile(IconData ikon, String baslik, VoidCallback onTap, {Color ikonRengi = const Color(0xFF6B7280)}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return ListTile(
       leading: Icon(ikon, color: ikonRengi),
-      title: Text(baslik, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF111827))),
+      title: Text(baslik, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: isDark ? Colors.white : const Color(0xFF111827))),
       trailing: const Icon(Icons.arrow_forward_ios, size: 14, color: Color(0xFFD1D5DB)),
       onTap: onTap,
     );
   }
 
   Widget _sahaKartiniOlustur(SahaModeli saha) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: () => Navigator.push(
         context, 
@@ -254,7 +288,7 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
       child: Container(
         margin: const EdgeInsets.only(bottom: 20),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 15, offset: const Offset(0, 5)),
@@ -273,13 +307,13 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
                       height: 180, 
-                      color: const Color(0xFFF3F4F6), 
+                      color: isDark ? Colors.grey[800] : const Color(0xFFF3F4F6), 
                       child: const Center(child: Icon(Icons.sports_soccer, size: 48, color: Color(0xFFD1D5DB)))
                     ),
                   )
                 : Container(
                     height: 180, 
-                    color: const Color(0xFFF3F4F6), 
+                    color: isDark ? Colors.grey[800] : const Color(0xFFF3F4F6), 
                     child: const Center(child: Icon(Icons.sports_soccer, size: 48, color: Color(0xFFD1D5DB)))
                   ),
             ),
@@ -291,11 +325,11 @@ class _AnasayfaEkraniState extends State<AnasayfaEkrani> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Expanded(child: Text(saha.isim, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+                      Expanded(child: Text(saha.isim, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black), overflow: TextOverflow.ellipsis)),
                       Text("${saha.fiyat.toInt()} ₺", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF16A34A))),
                     ],
                   ),
-                  Text(saha.ilce, style: const TextStyle(color: Color(0xFF6B7280))),
+                  Text(saha.ilce, style: TextStyle(color: isDark ? Colors.grey[400] : const Color(0xFF6B7280))),
                 ],
               ),
             ),

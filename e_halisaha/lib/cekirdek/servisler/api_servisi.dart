@@ -89,6 +89,40 @@ class ApiServisi {
     } catch (e) { return false; }
   }
 
+  // --- YENİ EKLENEN PROFİL GÜNCELLEME FONKSİYONU ---
+  Future<bool> profilGuncelle(int kullaniciId, String ad, String email, String telefon) async {
+    try {
+      final url = Uri.parse('$_baseUrl/users/$kullaniciId');
+      final headers = await _headers();
+      
+      final bodyData = jsonEncode({
+        'fullName': ad,
+        'name': ad,
+        'email': email,
+        'phone': telefon,
+        'phoneNumber': telefon
+      });
+
+      debugPrint("Profil Güncelleme İsteği: $url");
+      debugPrint("Gönderilen Profil Verisi: $bodyData");
+
+      var response = await http.put(url, headers: headers, body: bodyData);
+      
+      // Eğer backend PUT yerine PATCH metodunu kullanıyorsa diye güvenlik önlemi
+      if (response.statusCode == 404 || response.statusCode == 405) {
+        debugPrint("PUT başarısız oldu (${response.statusCode}), PATCH deneniyor...");
+        response = await http.patch(url, headers: headers, body: bodyData);
+      }
+
+      debugPrint("Profil Güncelleme Yanıtı: STATÜ: ${response.statusCode} - BODY: ${response.body}");
+      
+      return response.statusCode == 200 || response.statusCode == 201 || response.statusCode == 204;
+    } catch (e) {
+      debugPrint("Profil Güncelleme Hatası: $e");
+      return false;
+    }
+  }
+
   Future<bool> kullaniciRoluGuncelle(int id, String rol) async {
     try {
       final headers = await _headers();

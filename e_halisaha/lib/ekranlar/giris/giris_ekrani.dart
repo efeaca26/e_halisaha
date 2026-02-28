@@ -5,7 +5,7 @@ import '../anasayfa/anasayfa_ekrani.dart';
 import '../isletme/isletme_ana_sayfa.dart';
 import '../web/web_ana_sayfa.dart';
 import '../admin/admin_ana_sayfa.dart';
-import 'kayit_ekrani.dart'; // Kayıt ekranını içe aktarıyoruz
+import 'kayit_ekrani.dart'; 
 
 class GirisEkrani extends StatefulWidget {
   const GirisEkrani({super.key});
@@ -16,15 +16,34 @@ class GirisEkrani extends StatefulWidget {
 
 class _GirisEkraniState extends State<GirisEkrani> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _girisEmailController = TextEditingController();
-  final TextEditingController _girisSifreController = TextEditingController();
+  late TextEditingController _girisEmailController;
+  late TextEditingController _girisSifreController;
   
   bool _sifreGizli = true;
   bool _yukleniyor = false;
-  bool _beniHatirla = false;
   final ApiServisi _apiServisi = ApiServisi();
 
+  @override
+  void initState() {
+    super.initState();
+    // Controller'ları burada başlatıyoruz
+    _girisEmailController = TextEditingController();
+    _girisSifreController = TextEditingController();
+  }
+
+  // İŞTE HAYALET ÇİZGİ SORUNUNU ÇÖZEN EN KRİTİK KISIM
+  @override
+  void dispose() {
+    // Sayfa kapandığında klavye bağlantısını ve belleği tamamen temizle
+    _girisEmailController.dispose();
+    _girisSifreController.dispose();
+    super.dispose();
+  }
+
   Future<void> _girisYap() async {
+    // Klavyeyi zorla kapat ve kelime tamamlama (IME) hafızasını sıfırla
+    FocusScope.of(context).unfocus();
+
     if (_formKey.currentState!.validate()) {
       setState(() => _yukleniyor = true);
       
@@ -61,19 +80,16 @@ class _GirisEkraniState extends State<GirisEkrani> {
             String rol = (user['role'] ?? "customer").toString().toLowerCase();
             
             if (rol == "admin") {
-              // Admin sayfası parametre istemiyor
               Navigator.pushReplacement(
                 context, 
                 MaterialPageRoute(builder: (context) => const AdminAnaSayfa())
               );
             } else if (rol == "sahasahibi" || rol == "owner" || rol == "isletme") {
-              // İşletme sayfası "kullanici" parametresini zorunlu istiyor
               Navigator.pushReplacement(
                 context, 
                 MaterialPageRoute(builder: (context) => IsletmeAnaSayfa(kullanici: user))
               );
             } else {
-              // Normal kullanıcı sayfası parametre istemiyor
               Navigator.pushReplacement(
                 context, 
                 MaterialPageRoute(builder: (context) => const AnasayfaEkrani())
@@ -107,8 +123,10 @@ class _GirisEkraniState extends State<GirisEkrani> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -120,8 +138,8 @@ class _GirisEkraniState extends State<GirisEkrani> {
                 children: [
                   Container(
                     padding: const EdgeInsets.all(16),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFF0FDF4),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1F2937) : const Color(0xFFF0FDF4),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -131,23 +149,23 @@ class _GirisEkraniState extends State<GirisEkrani> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  const Text(
+                  Text(
                     "Giriş Yap",
                     style: TextStyle(
                       fontSize: 30,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF111827),
+                      color: isDark ? Colors.white : const Color(0xFF111827),
                     ),
                   ),
                   const SizedBox(height: 32),
                   Container(
                     padding: const EdgeInsets.all(32),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Theme.of(context).cardColor,
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
+                          color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -158,31 +176,46 @@ class _GirisEkraniState extends State<GirisEkrani> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text("E-posta veya Kullanıcı Adı", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                          Text("E-posta", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: isDark ? Colors.grey[300] : Colors.black87)),
                           const SizedBox(height: 8),
                           TextFormField(
                             controller: _girisEmailController,
+                            keyboardType: TextInputType.emailAddress,
+                            style: TextStyle(color: isDark ? Colors.white : Colors.black),
                             decoration: InputDecoration(
                               hintText: "mail@example.com",
+                              hintStyle: TextStyle(color: isDark ? Colors.grey[600] : Colors.grey[400]),
                               filled: true,
-                              fillColor: Colors.white,
+                              fillColor: isDark ? const Color(0xFF111827) : Colors.white,
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey[400]!),
+                              ),
                             ),
                             validator: (val) => val!.isEmpty ? "Boş bırakılamaz" : null,
                           ),
                           const SizedBox(height: 20),
-                          const Text("Şifre", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                          Text("Şifre", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: isDark ? Colors.grey[300] : Colors.black87)),
                           const SizedBox(height: 8),
                           TextFormField(
                             controller: _girisSifreController,
                             obscureText: _sifreGizli,
+                            style: TextStyle(color: isDark ? Colors.white : Colors.black),
                             decoration: InputDecoration(
                               hintText: "••••••••",
+                              hintStyle: TextStyle(color: isDark ? Colors.grey[600] : Colors.grey[400]),
+                              filled: true,
+                              fillColor: isDark ? const Color(0xFF111827) : Colors.white,
                               suffixIcon: IconButton(
-                                icon: Icon(_sifreGizli ? Icons.visibility_off : Icons.visibility),
+                                icon: Icon(_sifreGizli ? Icons.visibility_off : Icons.visibility, color: isDark ? Colors.grey[400] : Colors.grey[600]),
                                 onPressed: () => setState(() => _sifreGizli = !_sifreGizli),
                               ),
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide(color: isDark ? Colors.grey[800]! : Colors.grey[400]!),
+                              ),
                             ),
                             validator: (val) => val!.length < 6 ? "Şifre çok kısa" : null,
                           ),
@@ -210,17 +243,17 @@ class _GirisEkraniState extends State<GirisEkrani> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  
-                  // KAYIT OL YÖNLENDİRMESİ BURAYA EKLENDİ
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         "Hesabınız yok mu?",
-                        style: TextStyle(color: Color(0xFF6B7280)),
+                        style: TextStyle(color: isDark ? Colors.grey[400] : const Color(0xFF6B7280)),
                       ),
                       TextButton(
                         onPressed: () {
+                          // Kayıt ekranına geçerken de klavyeyi sıfırlayalım
+                          FocusScope.of(context).unfocus();
                           Navigator.push(
                             context,
                             MaterialPageRoute(builder: (context) => const KayitEkrani()),
